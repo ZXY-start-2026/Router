@@ -1,0 +1,9 @@
+app_name: Multi Model Chat
+environment: development
+database_url: sqlite:///./data/chat.db
+cors_origins:
+  - http://localhost:5173
+conversation_page_size: 20
+conversation_page_max_size: 100
+title_max_chars: 30
+

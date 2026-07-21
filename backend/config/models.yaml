@@ -1,0 +1,43 @@
+generation:
+  max_tokens: 1024
+  temperature: "0.7"
+  logprobs: null
+  logprobs_mode: null
+
+models:
+  MODEL_A:
+    display_name: "Gemma 3 4B"
+    router_model_name: "gemma3_4b_it_int4_awq"
+    endpoint_url: "https://inference.cluster.aimodelnetwork.cn/gaunernst/gemma-3-4b-it-int4-awq/v1/completions"
+    context_window: 131072
+    input_price_per_token: "0.00000005"
+    output_price_per_token: "0.0000001"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: "./resources/tokenizers/gemma"
+    enabled: true
+
+  MODEL_B:
+    display_name: "Qwen 4B Gemma"
+    router_model_name: "qwen4b_gemma"
+    endpoint_url: "https://inference.cluster.aimodelnetwork.cn/Intel/Qwen3.5-4B-int4-AutoRound/v1/completions"
+    context_window: 262144
+    input_price_per_token: "0.0000001"
+    output_price_per_token: "0.0000002"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: "./resources/tokenizers/qwen"
+    enabled: true
+
+  MODEL_C:
+    display_name: "Qwen 3.6 27B"
+    router_model_name: "qwen3-6-27b"
+    endpoint_url: "https://inference.cluster.aimodelnetwork.cn/nvidia/Qwen3.6-27B-NVFP4/v1/completions"
+    context_window: 262144
+    input_price_per_token: "0.0000004"
+    output_price_per_token: "0.0000008"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: "./resources/tokenizers/qwen"
+    enabled: true
+

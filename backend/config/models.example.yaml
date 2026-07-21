@@ -1,0 +1,40 @@
+generation:
+  max_tokens: 1024
+  temperature: "0.7"
+  logprobs: null
+  logprobs_mode: null
+
+models:
+  MODEL_A:
+    display_name: "可自定义展示名称"
+    router_model_name: "gemma3_4b_it_int4_awq"
+    endpoint_url: "https://example.com/model-a/v1/completions"
+    context_window: 131072
+    input_price_per_token: "0.00000005"
+    output_price_per_token: "0.0000001"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: "./resources/tokenizers/gemma"
+    enabled: true
+  MODEL_B:
+    display_name: "可自定义展示名称"
+    router_model_name: "qwen3-6-27b"
+    endpoint_url: "https://example.com/model-b/v1/completions"
+    context_window: 262144
+    input_price_per_token: "0.0000001"
+    output_price_per_token: "0.0000002"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: "./resources/tokenizers/qwen"
+    enabled: true
+  MODEL_C:
+    display_name: "接口保留"
+    router_model_name: "qwen4b_gemma"
+    endpoint_url: null
+    context_window: null
+    input_price_per_token: "0.0000004"
+    output_price_per_token: "0.0000008"
+    estimated_output_tokens: 512
+    request_timeout_seconds: 120
+    tokenizer_path: null
+    enabled: false
