@@ -27,6 +27,7 @@ models:
     estimated_output_tokens: 512
     request_timeout_seconds: 120
     tokenizer_path: "./resources/tokenizers/qwen"
+    disable_thinking: true
     enabled: true
 
   MODEL_C:
@@ -39,5 +40,5 @@ models:
     estimated_output_tokens: 512
     request_timeout_seconds: 120
     tokenizer_path: "./resources/tokenizers/qwen"
+    disable_thinking: true
     enabled: true
-

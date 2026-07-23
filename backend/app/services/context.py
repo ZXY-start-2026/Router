@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.models_core import UserMessage
 from app.db.models_generation import ContextSnapshot, SearchSnapshot
+from app.providers.model import sanitize_completion_text
 from app.providers.search import SearchResponse
 from app.repositories.chat import ChatRepository
 from app.repositories.generation import GenerationRepository
@@ -82,7 +83,10 @@ class ContextService:
             blocks.append("System:\n" + "\n\n".join(non_empty_system))
         for item in snapshot.history_json:
             role = "User" if item.get("role") == "user" else "Assistant"
-            blocks.append(f"{role}:\n{item.get('content', '')}")
+            content = str(item.get("content", ""))
+            if role == "Assistant":
+                content = sanitize_completion_text(content)
+            blocks.append(f"{role}:\n{content}")
         blocks.append(f"User:\n{snapshot.current_user_text}")
         blocks.append("Assistant:")
         return "\n\n".join(blocks)

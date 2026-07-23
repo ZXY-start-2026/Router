@@ -64,6 +64,7 @@ class ModelConfig:
     estimated_output_tokens: int = 512
     request_timeout_seconds: float = 120.0
     tokenizer_path: Path | None = None
+    disable_thinking: bool = False
     enabled: bool = True
 
     def safe_snapshot(self) -> dict[str, object]:
@@ -75,6 +76,7 @@ class ModelConfig:
             "input_price_per_token": str(self.input_price_per_token),
             "output_price_per_token": str(self.output_price_per_token),
             "estimated_output_tokens": self.estimated_output_tokens,
+            "disable_thinking": self.disable_thinking,
             "enabled": self.enabled,
         }
 
@@ -194,6 +196,7 @@ class Settings:
             tokenizer_path=(
                 _resolve_path(str(tokenizer_value)) if tokenizer_value else None
             ),
+            disable_thinking=_as_bool(str(raw.get("disable_thinking", False))),
             enabled=_as_bool(str(raw.get("enabled", True)), True),
         )
 

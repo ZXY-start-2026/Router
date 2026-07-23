@@ -1,4 +1,8 @@
-import { useState, type FormEvent } from "react";
+import {
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import type { ModelOption, SelectionMode } from "../api/types";
 import type { ModelSelection } from "../hooks/useChat";
@@ -31,6 +35,18 @@ export function Composer({ models, disabled, onSubmit }: ComposerProps) {
     }
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
   return (
     <form className="composer" onSubmit={(event) => void handleSubmit(event)}>
       <textarea
@@ -40,6 +56,7 @@ export function Composer({ models, disabled, onSubmit }: ComposerProps) {
         value={content}
         disabled={disabled}
         onChange={(event) => setContent(event.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <div className="composer-actions">
         <label>
