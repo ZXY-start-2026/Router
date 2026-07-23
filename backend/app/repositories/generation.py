@@ -78,12 +78,15 @@ class GenerationRepository:
         requested_model_key: str | None,
         search_snapshot_id: str,
         context_snapshot_id: str,
+        generation_mode: GenerationMode = GenerationMode.NEW_MESSAGE,
+        source_answer_version_id: str | None = None,
     ) -> GenerationTask:
         task = GenerationTask(
             user_message_id=user_message_id,
             branch_id=branch_id,
-            generation_mode=GenerationMode.NEW_MESSAGE,
+            generation_mode=generation_mode,
             selection_mode=selection_mode,
+            source_answer_version_id=source_answer_version_id,
             requested_model_key=requested_model_key,
             search_snapshot_id=search_snapshot_id,
             context_snapshot_id=context_snapshot_id,
@@ -96,6 +99,18 @@ class GenerationRepository:
         self.session.add(task)
         self.session.flush()
         return task
+
+    def get_search_snapshot(self, snapshot_id: str) -> SearchSnapshot | None:
+        return self.session.get(SearchSnapshot, snapshot_id)
+
+    def list_search_results(self, snapshot_id: str) -> list[SearchResult]:
+        return list(
+            self.session.scalars(
+                select(SearchResult)
+                .where(SearchResult.search_snapshot_id == snapshot_id)
+                .order_by(SearchResult.rank.asc())
+            )
+        )
 
     def create_route_snapshot(
         self,

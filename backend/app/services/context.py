@@ -8,7 +8,6 @@ from app.core.config import Settings
 from app.db.models_core import UserMessage
 from app.db.models_generation import ContextSnapshot, SearchSnapshot
 from app.providers.model import sanitize_completion_text
-from app.providers.search import SearchResponse
 from app.repositories.chat import ChatRepository
 from app.repositories.generation import GenerationRepository
 
@@ -33,25 +32,38 @@ class ContextService:
         branch_id: str,
         message: UserMessage,
         search_snapshot: SearchSnapshot,
-        search_response: SearchResponse,
     ) -> PreparedContext:
         history: list[dict[str, object]] = []
         for turn in self.chat.list_effective_messages(branch_id):
             if turn.user_message.id == message.id:
                 break
-            history.append({"role": "user", "content": turn.user_message.content})
+            history.append(
+                {
+                    "role": "user",
+                    "content": turn.user_message.content,
+                    "user_message_id": turn.user_message.id,
+                    "branch_message_id": turn.branch_message.id,
+                }
+            )
             answer = turn.active_answer
             if answer is not None and answer.content is not None:
-                history.append({"role": "assistant", "content": answer.content})
+                history.append(
+                    {
+                        "role": "assistant",
+                        "content": answer.content,
+                        "answer_version_id": answer.id,
+                    }
+                )
 
+        results = self.generation.list_search_results(search_snapshot.id)
         search_context = {
-            "provider": search_response.provider,
-            "status": search_response.status.value,
-            "failure_code": search_response.failure_code,
-            "failure_message": search_response.failure_message,
+            "provider": search_snapshot.provider,
+            "status": search_snapshot.status.value,
+            "failure_code": search_snapshot.failure_code,
+            "failure_message": search_snapshot.failure_message,
             "results": [
                 {"title": item.title, "snippet": item.snippet}
-                for item in search_response.results
+                for item in results
             ],
         }
         snapshot = self.generation.create_context_snapshot(

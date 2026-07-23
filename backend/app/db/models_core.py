@@ -59,8 +59,12 @@ class Branch(Base):
     branch_point_type: Mapped[BranchPointType] = mapped_column(
         Enum(BranchPointType), nullable=False, default=BranchPointType.ROOT
     )
-    branch_point_message_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    branch_point_answer_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    branch_point_message_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user_messages.id"), nullable=True
+    )
+    branch_point_answer_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("assistant_answer_versions.id"), nullable=True
+    )
     complete_turn_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[BranchStatus] = mapped_column(
         Enum(BranchStatus), nullable=False, default=BranchStatus.ACTIVE

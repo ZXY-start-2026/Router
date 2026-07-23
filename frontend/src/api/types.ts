@@ -8,6 +8,14 @@ export type GenerationStatus =
   | "SUCCEEDED"
   | "FAILED";
 export type SelectionMode = "AUTO_ROUTE" | "USER_SELECTED";
+export type RegenerationMode =
+  | "REGENERATE_ORIGINAL_MODEL"
+  | "REGENERATE_AUTO_ROUTE"
+  | "REGENERATE_USER_SELECTED";
+export type BranchPointType =
+  | "ROOT"
+  | "USER_MESSAGE_EDIT"
+  | "ANSWER_VERSION_ACTIVATE";
 export type AnswerStatus =
   | "GENERATING"
   | "SUCCEEDED_ACTIVE"
@@ -78,6 +86,30 @@ export interface BranchMessages {
   items: BranchTurn[];
 }
 
+export interface Branch {
+  id: string;
+  parent_branch_id: string | null;
+  branch_point_type: BranchPointType;
+  branch_point_message_id: string | null;
+  branch_point_answer_version_id: string | null;
+  complete_turn_count: number;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface BranchList {
+  conversation_id: string;
+  active_branch_id: string;
+  items: Branch[];
+}
+
+export interface AnswerVersions {
+  user_message_id: string;
+  branch_id: string;
+  active_answer_version_id: string | null;
+  items: Answer[];
+}
+
 export interface SendMessageRequest {
   content: string;
   selection_mode: SelectionMode;
@@ -96,6 +128,24 @@ export interface SendMessageResponse {
     failure_code: string | null;
     failure_message: string | null;
   };
+}
+
+export interface GenerationOperationResponse extends SendMessageResponse {
+  conversation_id: string;
+  branch_id: string;
+  created_branch_id: string | null;
+}
+
+export interface AnswerActivationResponse {
+  conversation_id: string;
+  branch_id: string;
+  created_branch_id: string | null;
+  active_answer: Answer;
+}
+
+export interface BranchActivationResponse {
+  conversation_id: string;
+  active_branch_id: string;
 }
 
 export interface ModelOption {

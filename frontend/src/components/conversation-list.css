@@ -1,0 +1,57 @@
+.conversation-row {
+  position: relative;
+  margin-bottom: 7px;
+}
+
+.conversation-row .conversation-card {
+  padding-right: 46px;
+}
+
+.conversation-delete-button {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.conversation-delete-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.conversation-row:hover .conversation-delete-button,
+.conversation-delete-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.conversation-delete-button:hover {
+  color: #862f24;
+  background: #f9e5df;
+}
+
+@media (hover: none) {
+  .conversation-delete-button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

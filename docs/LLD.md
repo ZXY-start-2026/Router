@@ -1,5 +1,7 @@
 # 多模型路由聊天系统详细设计（LLD）
 
+> 迭代3同步状态（2026-07-23）：迭代3设计已经用户确认并完成实施；实现记录见 `docs/iteration3-plan.md`。后端 39 项、前端 17 项测试通过，Alembic 迁移升降级与前端生产构建通过。
+
 > 文档状态：需求已确认，待按迭代实施  
 > 目标环境：Windows 本地开发  
 > 技术栈：React + TypeScript + Vite / Python 3.11+ + FastAPI + SQLAlchemy 2.x + Alembic / SQLite  
@@ -123,7 +125,7 @@ backend/
     versions/
       0001_core_chat.py
       0002_routing_generation.py             # 迭代2再实现，用固定返回值占位
-      0003_answer_branching.py                # 迭代3再实现，用固定返回值占位
+      0003_answer_branching.py
       0004_memory.py                          # 迭代4再实现，用固定返回值占位
       0005_roles.py                           # 迭代5再实现，用固定返回值占位
   app/
@@ -145,7 +147,7 @@ backend/
       conversations.py
       chat.py
       generation.py                           # 迭代2再实现，用固定返回值占位
-      branches.py                             # 迭代3再实现，用固定返回值占位
+      branches.py
       memories.py                             # 迭代4再实现，用固定返回值占位
       roles.py                                # 迭代5再实现，用固定返回值占位
     repositories/
@@ -168,8 +170,8 @@ backend/
       context.py                               # 迭代2再实现，用固定返回值占位
       routing.py                               # 迭代2再实现，用固定返回值占位
       generation.py                            # 迭代2再实现，用固定返回值占位
-      answers.py                               # 迭代3再实现，用固定返回值占位
-      branches.py                              # 迭代3再实现，用固定返回值占位
+      answers.py
+      branches.py
       memories.py                              # 迭代4再实现，用固定返回值占位
       roles.py                                 # 迭代5再实现，用固定返回值占位
   tests/
@@ -185,14 +187,14 @@ backend/
       test_candidate_filter.py                 # 迭代2再实现，用固定返回值占位
       test_error_classification.py             # 迭代2再实现，用固定返回值占位
       test_retry_fallback.py                   # 迭代2再实现，用固定返回值占位
-      test_answer_activation.py                # 迭代3再实现，用固定返回值占位
-      test_branch_inheritance.py               # 迭代3/4再实现，用固定返回值占位
+      test_answer_activation.py
+      test_branch_inheritance.py
       test_memory_trigger.py                    # 迭代4再实现，用固定返回值占位
     api/
       test_conversations.py
       test_chat.py
-      test_answers.py                          # 迭代3再实现，用固定返回值占位
-      test_branches.py                         # 迭代3再实现，用固定返回值占位
+      test_answers.py
+      test_branches.py
       test_memories.py                         # 迭代4再实现，用固定返回值占位
     integration/
       test_generation_pipeline.py              # 迭代2再实现，用固定返回值占位
@@ -213,13 +215,21 @@ frontend/
     api/types.ts
     hooks/useConversations.ts
     hooks/useChat.ts
+    storage/hiddenConversations.ts
     components/AppLayout.tsx
     components/ConversationList.tsx
+    components/conversation-list.css
+    components/ConfirmationDialog.tsx
+    components/confirmation-dialog.css
     components/ChatPanel.tsx
     components/MessageItem.tsx
     components/Composer.tsx
     components/AnswerMetadata.tsx              # 迭代2再实现，用固定返回值占位
-    components/BranchSwitcher.tsx              # 迭代3再实现，用固定返回值占位
+    components/MessageActions.tsx
+    components/MessageEditor.tsx
+    components/AnswerVersionDialog.tsx
+    components/BranchSwitcher.tsx
+    components/chat-actions.css
     components/MemoryPanel.tsx                  # 迭代4再实现，用固定返回值占位
     components/RolePanel.tsx                    # 迭代5再实现，用固定返回值占位
     styles.css
@@ -416,6 +426,34 @@ flowchart TD
     I -- "确定性错误" --> N
 ```
 
+### 7. 左侧会话前端隐藏
+
+用户界面中的“删除”严格定义为当前浏览器内的前端隐藏，不调用后端、不修改数据库，也不影响历史不可变规则。用户必须在确认弹窗中再次确认；取消、按 Escape 或点击遮罩均不改变列表。确认后将会话 ID 加入浏览器 `localStorage`，Hook 过滤服务端返回的列表；若隐藏的是当前会话，`App` 同时清空当前选择。分页结果全部被隐藏时继续加载下一页，直到出现可见会话或服务端无下一页。
+
+```mermaid
+sequenceDiagram
+    participant CL as frontend/src/components/ConversationList.tsx
+    participant CD as frontend/src/components/ConfirmationDialog.tsx
+    participant APP as frontend/src/App.tsx
+    participant UC as frontend/src/hooks/useConversations.ts
+    participant HS as frontend/src/storage/hiddenConversations.ts
+    participant LS as Browser localStorage
+
+    CL->>CD: "打开确认框(title, description, conversationId)"
+    alt "用户取消"
+        CD-->>CL: "onCancel()"
+        CL->>CL: "清空 pendingDelete"
+    else "用户确认"
+        CD-->>CL: "onConfirm()"
+        CL->>APP: "onDelete(conversationId)"
+        APP->>UC: "hide(conversationId)"
+        UC->>HS: "saveHiddenConversationIds(nextIds)"
+        HS->>LS: "setItem(storageKey, string[])"
+        UC-->>APP: "返回过滤后的 items"
+        APP->>APP: "若 currentId 相同则设为 null"
+    end
+```
+
 ## API接口定义
 
 ### 1. 通用约定
@@ -429,6 +467,7 @@ flowchart TD
 - 所有写操作以数据库事务保证指针与版本状态一致。
 - 当前为单用户系统，不设置认证头。
 - 后端调用三个模型 API 时同样不设置 API Key、`Authorization` 或其他鉴权头；仅发送 `Content-Type: application/json`。
+- 左侧会话“删除”是浏览器本地隐藏，不新增 `DELETE /conversations/{id}`，也不调用现有后端端点。
 
 ### 2. 端点清单
 
@@ -562,6 +601,7 @@ flowchart TD
 - JSON 字段只保存不可变快照和供应商原始安全元数据；需要筛选、关联和保持约束的数据使用普通列。
 - 不建立级联物理删除。当前 API 不提供删除端点。
 - `created_at` 不更新；版本化实体不提供通用 update 方法。
+- 前端隐藏 ID 不是业务数据实体，不进入 ER 图和数据库；它只是当前浏览器 `localStorage` 中的字符串数组，清理浏览器站点数据后可恢复显示。
 
 ### 2. 实体字段
 
@@ -863,6 +903,8 @@ models:
 | `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | REST API 根地址 |
 
 前端不接收或保存任何模型、搜索或路由器密钥。
+
+会话隐藏使用固定本地存储键 `multi-model-chat:hidden-conversation-ids`，值为 JSON 字符串数组。该键不是环境配置项：它只表达单一、稳定的浏览器端 UI 偏好，不值得增加部署配置复杂度。本地存储不可读写或内容损坏时回退为空集合；本次页面内的隐藏仍可生效，不阻断主流程。
 
 ## 模块化文件详解 (File-by-File Breakdown)
 
@@ -2228,7 +2270,7 @@ flowchart LR
 
 ### frontend/src/App.tsx
 
-a. 文件用途说明：持有当前会话 ID、侧栏展开状态和顶层错误，协调会话列表与聊天区。
+a. 文件用途说明：持有当前会话 ID、侧栏展开状态和顶层错误，协调会话列表与聊天区；收到前端隐藏动作时清空被隐藏的当前会话。
 
 b. 文件内类图：函数组件 `App`。
 
@@ -2247,6 +2289,23 @@ flowchart TD
     B -- "是" --> D["加载活动分支聊天"]
     D --> E["左右分栏渲染"]
     E --> F["窄屏按按钮收起或展开侧栏"]
+```
+
+#### `deleteConversation(id)`
+
+- 用途：协调会话隐藏并避免主区继续引用已从列表隐藏的会话。
+- 输入参数：`id`，待隐藏会话 ID。
+- 输出数据结构：无返回值；调用 `useConversations.hide(id)`，当 `currentId === id` 时把当前选择设为 `null`。
+
+```mermaid
+sequenceDiagram
+    participant CL as frontend/src/components/ConversationList.tsx
+    participant APP as frontend/src/App.tsx
+    participant UC as frontend/src/hooks/useConversations.ts
+    CL->>APP: "onDelete(id)"
+    APP->>UC: "hide(id)"
+    APP->>APP: "比较 id 与 currentId"
+    APP-->>CL: "完成"
 ```
 
 ### frontend/src/api/client.ts
@@ -2283,7 +2342,7 @@ c. 函数/方法详解：无函数。类型必须与 OpenAPI 对齐；ModelOptio
 
 ### frontend/src/hooks/useConversations.ts
 
-a. 文件用途说明：管理会话首屏、游标追加、创建、选择和标题更新状态。
+a. 文件用途说明：管理会话首屏、游标追加、创建、前端隐藏和标题更新状态；服务端返回值保存在 `allItems`，对组件只暴露排除 `hiddenIds` 后的 `items`。
 
 b. 文件内类图：无类，自定义 Hook。
 
@@ -2293,7 +2352,7 @@ c. 函数/方法详解：
 
 - 用途：封装会话列表状态和动作。
 - 输入参数：无。
-- 输出数据结构：`items/loading/error/hasMore/loadMore/create/rename/refreshItem`。
+- 输出数据结构：`items/loading/error/hasMore/loadMore/create/hide/refresh/reload`。
 
 ```mermaid
 flowchart TD
@@ -2302,6 +2361,58 @@ flowchart TD
     C -- "是" --> D["携带 cursor 请求下一页"]
     D --> E["按 ID 去重后追加"]
     C -- "否" --> F["不请求"]
+```
+
+#### `hide(conversationId)`
+
+- 用途：在当前浏览器隐藏指定会话，不发送网络请求。
+- 输入参数：`conversationId`，后端会话 ID 字符串。
+- 输出数据结构：无返回值；更新 `hiddenIds: Set<string>` 并持久化为字符串数组。
+
+```mermaid
+flowchart TD
+    A["复制当前 hiddenIds"] --> B["加入 conversationId"]
+    B --> C["写入 localStorage"]
+    C --> D["按 hiddenIds 重新计算可见 items"]
+    D --> E{"可见列表为空且 hasMore?"}
+    E -- "是" --> F["加载下一页并继续过滤"]
+    E -- "否" --> G["结束"]
+```
+
+### frontend/src/storage/hiddenConversations.ts
+
+a. 文件用途说明：集中管理前端隐藏会话 ID 的本地存储键、容错读取和容错写入；不访问后端。
+
+b. 文件内类图：无类。
+
+c. 函数/方法详解：
+
+#### `loadHiddenConversationIds()`
+
+- 用途：读取并校验当前浏览器已隐藏的会话 ID。
+- 输入参数：无。
+- 输出数据结构：`Set<string>`；键缺失、JSON 损坏、值非数组或存储不可访问时返回空集合。
+
+```mermaid
+flowchart TD
+    A["读取固定 localStorage 键"] --> B{"可读取且 JSON 为数组?"}
+    B -- "否" --> C["返回空 Set"]
+    B -- "是" --> D["仅保留 string 元素"]
+    D --> E["返回 Set"]
+```
+
+#### `saveHiddenConversationIds(ids)`
+
+- 用途：把隐藏集合持久化到当前浏览器。
+- 输入参数：`ids: ReadonlySet<string>`。
+- 输出数据结构：无；序列化为 JSON 字符串数组，写入失败时静默保留当前页面内状态。
+
+```mermaid
+flowchart LR
+    A["ReadonlySet<string>"] --> B["转换为 string[]"] --> C["JSON 序列化"] --> D["写入固定键"]
+    D --> E{"写入失败?"}
+    E -- "是" --> F["不阻断 UI"]
+    E -- "否" --> G["完成"]
 ```
 
 ### frontend/src/hooks/useChat.ts
@@ -2345,14 +2456,61 @@ c. 函数/方法详解：`AppLayout(props)` 输入侧栏内容、主区内容、
 
 ### frontend/src/components/ConversationList.tsx
 
-a. 文件用途说明：展示会话标题、最近摘要、更新时间和当前生成状态；滚动触底加载更多。
+a. 文件用途说明：展示会话标题、最近摘要、更新时间和当前生成状态；滚动触底加载更多，并提供每条会话的删除入口和二次确认状态。
 
 b. 文件内类图：函数组件 `ConversationList`。
 
 c. 函数/方法详解：
 
-- `ConversationList(props)`：输入 items、currentId、loading、hasMore 和回调；输出列表。
+- `ConversationList(props)`：输入 items、currentId、loading、hasMore、`onSelect/onDelete/onCreate/onLoadMore`；输出列表及按需显示的确认弹窗。
 - `handleScroll(event)`：当距离底部小于阈值且未加载时调用 `onLoadMore`；不自行操作游标。
+
+```mermaid
+flowchart TD
+    A["点击会话删除按钮"] --> B["保存 pendingDelete"]
+    B --> C["渲染 ConfirmationDialog"]
+    C --> D{"用户确认?"}
+    D -- "否" --> E["清空 pendingDelete"]
+    D -- "是" --> F["调用 onDelete(id)"]
+    F --> E
+```
+
+### frontend/src/components/conversation-list.css
+
+a. 文件用途说明：仅承载会话行删除入口的定位、显隐、图标和触屏适配样式，避免继续扩大全局样式文件。
+
+b. 文件内类图：无类。
+
+c. 函数/方法详解：无函数；鼠标设备在行悬停或按钮键盘聚焦时显示删除入口，触屏设备始终显示。
+
+### frontend/src/components/ConfirmationDialog.tsx
+
+a. 文件用途说明：提供项目内可复用的最小确认弹窗；支持按钮取消、Escape 取消和点击遮罩取消。
+
+b. 文件内类图：函数组件 `ConfirmationDialog`。
+
+c. 函数/方法详解：
+
+#### `ConfirmationDialog(props)`
+
+- 用途：阻断高影响 UI 动作，直到用户明确取消或确认。
+- 输入参数：`title`、`description`、`confirmLabel`、`onCancel`、`onConfirm`。
+- 输出数据结构：带 `role="dialog"`、`aria-modal="true"` 和标题/说明关联的 React 元素。
+
+```mermaid
+flowchart TD
+    A["渲染弹窗并聚焦取消按钮"] --> B{"用户操作"}
+    B -- "取消按钮 / Escape / 遮罩" --> C["调用 onCancel"]
+    B -- "确认按钮" --> D["调用 onConfirm"]
+```
+
+### frontend/src/components/confirmation-dialog.css
+
+a. 文件用途说明：仅承载确认弹窗遮罩、内容卡片和操作按钮样式。
+
+b. 文件内类图：无类。
+
+c. 函数/方法详解：无函数；弹窗层级高于移动端侧栏和遮罩，窄屏宽度受视口约束。
 
 ### frontend/src/components/ChatPanel.tsx
 
@@ -2561,15 +2719,15 @@ flowchart LR
 
 #### frontend/src/test/App.test.tsx
 
-- 覆盖：无会话空状态、选择会话、窄屏侧栏按钮。
+- 覆盖：无会话空状态、确认删除后的列表过滤与 `localStorage` 持久化。
 
 #### frontend/src/test/setup.ts
 
-- 用途：注册 Testing Library DOM matcher 并在每个用例后清理 DOM；不放业务 Mock 数据。
+- 用途：注册 Testing Library DOM matcher并在每个用例后清理 DOM 与 `localStorage`；不放业务 Mock 数据。
 
 #### frontend/src/test/ConversationList.test.tsx
 
-- 覆盖：标题/摘要/时间/生成态展示、滚动加载、防止加载中重复触发。
+- 覆盖：标题/摘要/时间/生成态展示、滚动加载、防止加载中重复触发、取消不删除及确认后回调。
 
 #### frontend/src/test/ChatPanel.test.tsx
 
@@ -2610,6 +2768,7 @@ sequenceDiagram
 6. 发送消息使用注入的 `ModelProvider` 接口。自动化测试和明确的开发验收配置可注入 Mock；生产模式无真实 Provider 时明确失败。
 7. 保存用户消息和成功回答，并通过 BranchMessage 指针保证当前回答唯一。
 8. 页面完成左右分栏、会话列表、聊天消息、Composer 与基础窄屏侧栏。
+9. 会话列表删除只写浏览器本地隐藏 ID；必须二次确认，禁止新增或调用后端删除 API。
 
 迭代1不创建 `SearchSnapshot`、`GenerationTask` 等未来表，不创建未来空模块，不展示尚不可用的搜索/路由/分支/备忘录/角色功能。Provider 接口可在已有 `providers/*.py` 中定义；未到对应迭代的真实适配类不伪实现。
 

@@ -35,6 +35,11 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  const deleteConversation = (id: string) => {
+    conversations.hide(id);
+    if (currentId === id) setCurrentId(null);
+  };
+
   return (
     <AppLayout
       sidebarOpen={sidebarOpen}
@@ -47,6 +52,7 @@ export default function App() {
           hasMore={conversations.hasMore}
           error={conversations.error}
           onSelect={selectConversation}
+          onDelete={deleteConversation}
           onCreate={() => void createConversation()}
           onLoadMore={() => void conversations.loadMore()}
         />
@@ -60,6 +66,14 @@ export default function App() {
           submitting={chat.submitting}
           error={chat.error}
           onSend={chat.send}
+          branches={chat.branches}
+          activeBranchId={chat.activeBranchId}
+          answerVersions={chat.answerVersions}
+          onLoadVersions={chat.loadAnswerVersions}
+          onRegenerate={chat.regenerate}
+          onActivateAnswer={chat.activateAnswer}
+          onEditMessage={chat.editMessage}
+          onSwitchBranch={chat.switchBranch}
         />
       }
     />

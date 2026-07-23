@@ -3,11 +3,10 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.enums import ErrorCategory, GenerationStatus, SearchStatus, SelectionMode, TitleSource
-from app.core.errors import AppError, ConflictError, NotFoundError, ProviderError
+from app.core.enums import GenerationMode, GenerationStatus, SelectionMode, TitleSource
+from app.core.errors import ConflictError, NotFoundError
 from app.db.models_core import AssistantAnswerVersion, BranchMessage, UserMessage
 from app.providers.registry import ProviderRegistry
-from app.providers.search import SearchRequest, SearchResponse
 from app.repositories.chat import ChatRepository, EffectiveTurn
 from app.repositories.conversations import ConversationRepository
 from app.repositories.generation import GenerationRepository
@@ -26,9 +25,7 @@ from app.schemas.generation import (
     RouteCandidateResponse,
     SearchSnapshotResponse,
 )
-from app.services.context import ContextService
-from app.services.generation import GenerationOutcome, GenerationService
-from app.services.routing import RoutingService
+from app.services.generation import GenerationService
 from app.services.title import make_title
 
 
@@ -57,7 +54,6 @@ class ChatService:
     ) -> SendMessageResponse:
         conversation, branch = self._require_active_branch(conversation_id)
         message, link = self.chat.append_user_message(branch, request.content)
-        answer = self.chat.create_answer_version(message.id, request.selection_mode)
         if conversation.title_source == TitleSource.DEFAULT:
             self.conversations.update_title(
                 conversation,
@@ -68,134 +64,41 @@ class ChatService:
             self.conversations.touch(conversation)
         self.session.commit()
 
-        search_response = self._search(request.content)
-        search_snapshot = self.generation.create_search_snapshot(message, search_response)
-        prepared = ContextService(self.session, self.settings).prepare(
-            branch_id=branch.id,
+        generator = GenerationService(
+            self.session,
+            self.settings,
+            self.providers.models,
+            self.providers.model,
+            self.providers,
+        )
+        search_snapshot = generator.create_search_snapshot(message)
+        run = generator.run(
+            branch=branch,
             message=message,
             search_snapshot=search_snapshot,
-            search_response=search_response,
-        )
-        task = self.generation.create_task(
-            user_message_id=message.id,
-            branch_id=branch.id,
             selection_mode=request.selection_mode,
             requested_model_key=request.model_key,
-            search_snapshot_id=search_snapshot.id,
-            context_snapshot_id=prepared.snapshot.id,
+            generation_mode=GenerationMode.NEW_MESSAGE,
         )
-        self.generation.bind_answer_to_task(answer, task)
-        self.session.commit()
-
-        route_plan = None
-        try:
-            generator = GenerationService(
-                self.session,
-                self.settings,
-                self.providers.models,
-                self.providers.model,
-            )
-            if request.selection_mode == SelectionMode.AUTO_ROUTE:
-                route_plan = RoutingService(
-                    self.session,
-                    self.settings,
-                    self.providers.models,
-                    self.providers.router,
-                    self.providers.tokenizer,
-                ).route(task, request.content, prepared.prompt)
-                answer.route_snapshot_id = route_plan.snapshot.id
-                self.session.commit()
-                outcome = generator.execute_auto(
-                    task, route_plan, prepared.prompt, request.content
-                )
-            else:
-                assert request.model_key is not None
-                outcome = generator.execute_manual(
-                    task, request.model_key, prepared.prompt, request.content
-                )
-        except AppError as error:
-            category = error.category if isinstance(error, ProviderError) else ErrorCategory.UNKNOWN
-            return self._record_failure(
-                conversation,
-                message,
-                answer,
-                link,
-                task,
-                search_response.status,
-                category,
-                error.code,
-                error.message,
-            )
-        except Exception:
-            return self._record_failure(
-                conversation,
-                message,
-                answer,
-                link,
-                task,
-                search_response.status,
-                ErrorCategory.UNKNOWN,
-                "GENERATION_PIPELINE_ERROR",
-                "生成流程失败",
-            )
-
-        if outcome.result is None or outcome.model is None:
-            error = outcome.failure or ProviderError("所有候选模型均生成失败")
-            return self._record_failure(
-                conversation,
-                message,
-                answer,
-                link,
-                task,
-                search_response.status,
-                error.category,
-                error.provider_code or error.code,
-                error.message,
-            )
-
-        candidate = (
-            self.generation.get_candidate(route_plan.snapshot.id, outcome.model.model_key)
-            if route_plan is not None
-            else None
-        )
-        actual_cost = GenerationService.actual_cost(
-            outcome.model,
-            outcome.result.input_tokens,
-            outcome.result.output_tokens,
-        )
-        self.chat.finalize_answer(
-            branch,
-            link,
-            message,
-            answer,
-            content=outcome.result.content,
-            model_key=outcome.result.model_key,
-            model_id=outcome.result.model_id,
-            display_name=outcome.model.display_name,
-            selection_mode=outcome.selection_mode,
-            route_snapshot_id=route_plan.snapshot.id if route_plan else None,
-            predicted_input_tokens=(candidate.predicted_input_tokens if candidate else None),
-            predicted_output_tokens=(candidate.predicted_output_tokens if candidate else None),
-            predicted_cost=(candidate.predicted_cost if candidate else None),
-            actual_input_tokens=outcome.result.input_tokens,
-            actual_output_tokens=outcome.result.output_tokens,
-            actual_cost=actual_cost,
-            price_version=self.settings.price_version,
-        )
-        self.generation.succeed_task(task)
+        if run.status == GenerationStatus.SUCCEEDED:
+            self.chat.activate_answer(branch, link, message, run.answer)
         self.conversations.touch(conversation)
         self.session.commit()
         return SendMessageResponse(
-            user_message=self._user_response(message, link),
-            active_answer=self._answer_response(
-                answer, finish_reason=outcome.result.finish_reason
+            user_message=self.user_response(message, link),
+            active_answer=(
+                self.answer_response(run.answer, finish_reason=run.finish_reason)
+                if run.status == GenerationStatus.SUCCEEDED
+                else None
             ),
             generation=GenerationResultSummary(
-                status=GenerationStatus.SUCCEEDED,
-                task_id=task.id,
-                search_status=search_response.status.value,
-                selected_model_key=outcome.result.model_key,
-                route_snapshot_id=task.route_snapshot_id,
+                status=run.status,
+                task_id=run.task.id if run.task else None,
+                search_status=run.search_status.value,
+                selected_model_key=run.selected_model_key,
+                route_snapshot_id=run.task.route_snapshot_id if run.task else None,
+                failure_code=run.failure_code,
+                failure_message=run.failure_message,
             ),
         )
 
@@ -258,49 +161,6 @@ class ChatService:
             ],
         )
 
-    def _search(self, query: str) -> SearchResponse:
-        try:
-            return self.providers.search.search(
-                SearchRequest(query=query, max_results=self.settings.search_max_results)
-            )
-        except Exception:
-            return SearchResponse(
-                provider="360",
-                status=SearchStatus.FAILED,
-                query=query,
-                failure_code="SEARCH_PROVIDER_ERROR",
-                failure_message="联网搜索失败，本轮继续使用模型自身知识回答。",
-            )
-
-    def _record_failure(
-        self,
-        conversation,
-        message: UserMessage,
-        answer: AssistantAnswerVersion,
-        link: BranchMessage,
-        task,
-        search_status: SearchStatus,
-        category: ErrorCategory,
-        code: str,
-        message_text: str,
-    ) -> SendMessageResponse:
-        self.generation.fail_task(task, category, message_text)
-        self.chat.mark_answer_failed(message, answer)
-        self.conversations.touch(conversation)
-        self.session.commit()
-        return SendMessageResponse(
-            user_message=self._user_response(message, link),
-            active_answer=None,
-            generation=GenerationResultSummary(
-                status=GenerationStatus.FAILED,
-                task_id=task.id,
-                search_status=search_status.value,
-                route_snapshot_id=task.route_snapshot_id,
-                failure_code=code,
-                failure_message=message_text,
-            ),
-        )
-
     def _require_active_branch(self, conversation_id: str):
         conversation = self.conversations.get(conversation_id)
         if conversation is None:
@@ -312,9 +172,9 @@ class ChatService:
 
     def _turn_response(self, turn: EffectiveTurn) -> BranchTurnResponse:
         return BranchTurnResponse(
-            user_message=self._user_response(turn.user_message, turn.branch_message),
+            user_message=self.user_response(turn.user_message, turn.branch_message),
             active_answer=(
-                self._answer_response(
+                self.answer_response(
                     turn.active_answer, finish_reason=turn.finish_reason
                 )
                 if turn.active_answer is not None
@@ -323,7 +183,7 @@ class ChatService:
         )
 
     @staticmethod
-    def _user_response(message: UserMessage, link: BranchMessage) -> UserMessageResponse:
+    def user_response(message: UserMessage, link: BranchMessage) -> UserMessageResponse:
         return UserMessageResponse(
             id=message.id,
             content=message.content,
@@ -333,7 +193,7 @@ class ChatService:
         )
 
     @staticmethod
-    def _answer_response(
+    def answer_response(
         answer: AssistantAnswerVersion, finish_reason: str | None = None
     ) -> AnswerResponse:
         if answer.content is None or answer.model_key is None or answer.model_id_snapshot is None or answer.completed_at is None:

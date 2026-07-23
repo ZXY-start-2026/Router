@@ -114,6 +114,9 @@ class GenerationTask(Base):
     selection_mode: Mapped[SelectionMode] = mapped_column(
         Enum(SelectionMode), nullable=False
     )
+    source_answer_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("assistant_answer_versions.id"), nullable=True
+    )
     requested_model_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     search_snapshot_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("search_snapshots.id"), nullable=False
