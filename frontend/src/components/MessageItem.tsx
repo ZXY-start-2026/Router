@@ -53,6 +53,15 @@ function CopyIcon({ copied }: { copied: boolean }) {
   );
 }
 
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 export function MessageItem({
   turn,
   models,
@@ -104,12 +113,14 @@ export function MessageItem({
           <span className="message-role">你</span>
           <div className="message-tools">
             <button
-              className="text-action-button"
+              className="edit-message-button"
               type="button"
+              aria-label="编辑消息"
+              title="编辑消息"
               disabled={disabled}
               onClick={() => setEditing(true)}
             >
-              编辑
+              <EditIcon />
             </button>
             <button
               className="copy-button"

@@ -1,4 +1,8 @@
-import { useState, type FormEvent } from "react";
+import {
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import type { ModelOption } from "../api/types";
 import type { ModelSelection } from "../hooks/useChat";
@@ -36,6 +40,18 @@ export function MessageEditor({
     }
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
   return (
     <form className="message-editor" onSubmit={(event) => void submit(event)}>
       <textarea
@@ -44,6 +60,7 @@ export function MessageEditor({
         disabled={disabled}
         rows={4}
         onChange={(event) => setContent(event.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <div className="message-editor-actions">
         <select
