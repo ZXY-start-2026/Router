@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,12 @@ from app.core.errors import AppError
 from app.db.session import create_engine_and_session_factory
 from app.providers.model import ModelProvider
 from app.providers.registry import ProviderRegistry
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 def create_app(

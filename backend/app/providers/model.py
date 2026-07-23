@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import logging
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
+from time import perf_counter
 
 import requests
 
 from app.core.config import GenerationConfig, ModelConfig
 from app.core.enums import ErrorCategory
 from app.core.errors import ProviderError
+
+logger = logging.getLogger(__name__)
 
 
 COMPLETION_STOP_SEQUENCES = ("\nUser:", "\nSystem:")
@@ -110,6 +114,7 @@ class CompletionModelProvider(ModelProvider):
             "temperature": float(self.generation.temperature),
             "stop": list(COMPLETION_STOP_SEQUENCES),
         }
+        t0 = perf_counter()
         try:
             response = requests.post(
                 model.endpoint_url,
@@ -117,6 +122,10 @@ class CompletionModelProvider(ModelProvider):
                 timeout=model.request_timeout_seconds,
             )
         except requests.Timeout as exc:
+            logger.warning(
+                "model=%s timeout=%.1fs url=%s",
+                model.model_key, perf_counter() - t0, model.endpoint_url,
+            )
             raise ProviderError(
                 "模型请求超时",
                 category=ErrorCategory.TRANSIENT_TIMEOUT,
@@ -138,6 +147,7 @@ class CompletionModelProvider(ModelProvider):
             ) from exc
 
         if response.status_code == 429:
+            logger.warning("model=%s status=429 latency=%.2fs", model.model_key, perf_counter() - t0)
             raise ProviderError(
                 "模型服务限流",
                 category=ErrorCategory.TRANSIENT_RATE_LIMIT,
@@ -145,6 +155,7 @@ class CompletionModelProvider(ModelProvider):
                 retryable=True,
             )
         if response.status_code >= 500:
+            logger.warning("model=%s status=%d latency=%.2fs", model.model_key, response.status_code, perf_counter() - t0)
             raise ProviderError(
                 "模型服务暂时不可用",
                 category=ErrorCategory.TRANSIENT_SERVER,
@@ -152,6 +163,7 @@ class CompletionModelProvider(ModelProvider):
                 retryable=True,
             )
         if not response.ok:
+            logger.warning("model=%s status=%d latency=%.2fs", model.model_key, response.status_code, perf_counter() - t0)
             raise ProviderError(
                 "模型拒绝了本次请求",
                 category=ErrorCategory.MODEL_REQUEST_REJECTED,
@@ -161,7 +173,14 @@ class CompletionModelProvider(ModelProvider):
             payload_json = response.json()
         except ValueError as exc:
             raise self._invalid_response("模型返回的不是有效 JSON", exc)
-        return self._parse_response(request.requested_model_key, payload_json)
+        result = self._parse_response(request.requested_model_key, payload_json)
+        logger.info(
+            "model=%s latency=%.2fs tokens=(%d,%d) finish=%s req_id=%s",
+            result.model_key, perf_counter() - t0,
+            result.input_tokens, result.output_tokens,
+            result.finish_reason, result.provider_request_id,
+        )
+        return result
 
     @staticmethod
     def _invalid_response(message: str, cause: Exception | None = None) -> ProviderError:
