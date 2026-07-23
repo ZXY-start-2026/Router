@@ -331,6 +331,15 @@ h2 {
   font-size: 0.75rem;
 }
 
+.message .answer-truncated-notice {
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-left: 3px solid #b56b3f;
+  color: #7b4327;
+  background: #fff3e8;
+  font-size: 0.84rem;
+}
+
 .message-tools {
   display: flex;
   align-items: center;

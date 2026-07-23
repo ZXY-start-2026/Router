@@ -77,6 +77,11 @@ export function MessageItem({ turn }: MessageItemProps) {
             </div>
           </div>
           <p>{turn.active_answer.content}</p>
+          {turn.active_answer.finish_reason === "length" ? (
+            <p className="answer-truncated-notice" role="status">
+              回答因达到长度上限而被截断，请缩小问题范围或重新生成。
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="message assistant-message failed-answer">

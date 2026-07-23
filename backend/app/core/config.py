@@ -36,7 +36,7 @@ def _decimal(value: object, field_name: str) -> Decimal:
 
 @dataclass(frozen=True, slots=True)
 class GenerationConfig:
-    max_tokens: int = 1024
+    max_tokens: int = 4096
     temperature: Decimal = Decimal("0.7")
     logprobs: None = None
     logprobs_mode: None = None
@@ -118,7 +118,7 @@ class Settings:
         if not isinstance(generation_data, dict):
             raise ValueError("generation config must be a mapping")
         generation = GenerationConfig(
-            max_tokens=int(generation_data.get("max_tokens", 1024)),
+            max_tokens=int(generation_data.get("max_tokens", 4096)),
             temperature=_decimal(generation_data.get("temperature", "0.7"), "temperature"),
             logprobs=generation_data.get("logprobs"),
             logprobs_mode=generation_data.get("logprobs_mode"),
@@ -216,8 +216,8 @@ class Settings:
             raise ValueError("TITLE_MAX_CHARS must be positive")
         if self.accuracy_weight + self.cost_weight != Decimal("1"):
             raise ValueError("Router weights must sum to 1")
-        if self.generation.max_tokens != 1024:
-            raise ValueError("generation.max_tokens must be 1024")
+        if self.generation.max_tokens <= 0:
+            raise ValueError("generation.max_tokens must be positive")
         if self.generation.temperature != Decimal("0.7"):
             raise ValueError("generation.temperature must be 0.7")
         if self.generation.logprobs is not None or self.generation.logprobs_mode is not None:

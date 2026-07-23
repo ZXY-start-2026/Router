@@ -187,7 +187,9 @@ class ChatService:
         self.session.commit()
         return SendMessageResponse(
             user_message=self._user_response(message, link),
-            active_answer=self._answer_response(answer),
+            active_answer=self._answer_response(
+                answer, finish_reason=outcome.result.finish_reason
+            ),
             generation=GenerationResultSummary(
                 status=GenerationStatus.SUCCEEDED,
                 task_id=task.id,
@@ -312,7 +314,9 @@ class ChatService:
         return BranchTurnResponse(
             user_message=self._user_response(turn.user_message, turn.branch_message),
             active_answer=(
-                self._answer_response(turn.active_answer)
+                self._answer_response(
+                    turn.active_answer, finish_reason=turn.finish_reason
+                )
                 if turn.active_answer is not None
                 else None
             ),
@@ -329,7 +333,9 @@ class ChatService:
         )
 
     @staticmethod
-    def _answer_response(answer: AssistantAnswerVersion) -> AnswerResponse:
+    def _answer_response(
+        answer: AssistantAnswerVersion, finish_reason: str | None = None
+    ) -> AnswerResponse:
         if answer.content is None or answer.model_key is None or answer.model_id_snapshot is None or answer.completed_at is None:
             raise ConflictError("生效回答数据不完整")
         return AnswerResponse(
@@ -349,4 +355,5 @@ class ChatService:
             predicted_cost=answer.predicted_cost,
             actual_cost=answer.actual_cost,
             price_version=answer.price_version,
+            finish_reason=finish_reason,
         )

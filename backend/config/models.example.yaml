@@ -1,5 +1,5 @@
 generation:
-  max_tokens: 1024
+  max_tokens: 4096
   temperature: "0.7"
   logprobs: null
   logprobs_mode: null
