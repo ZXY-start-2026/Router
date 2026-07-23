@@ -1,12 +1,19 @@
 import type {
   ApiErrorBody,
+  AnswerActivationResponse,
+  AnswerVersions,
+  BranchActivationResponse,
+  BranchList,
   BranchMessages,
   Conversation,
   ConversationListItem,
   CursorPage,
+  GenerationOperationResponse,
   ModelOption,
+  RegenerationMode,
   SendMessageRequest,
   SendMessageResponse,
+  SelectionMode,
 } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
@@ -66,6 +73,64 @@ export const api = {
     return request(`/conversations/${conversationId}/messages`);
   },
 
+  listAnswerVersions(messageId: string, branchId: string): Promise<AnswerVersions> {
+    const params = new URLSearchParams({ branch_id: branchId });
+    return request(`/messages/${messageId}/answers?${params.toString()}`);
+  },
+
+  regenerateAnswer(
+    messageId: string,
+    body: {
+      branch_id: string;
+      mode: RegenerationMode;
+      model_key: string | null;
+    },
+  ): Promise<GenerationOperationResponse> {
+    return request(`/messages/${messageId}/regenerations`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  activateAnswer(
+    messageId: string,
+    answerId: string,
+    branchId: string,
+  ): Promise<AnswerActivationResponse> {
+    return request(`/messages/${messageId}/answers/${answerId}/activate`, {
+      method: "POST",
+      body: JSON.stringify({ branch_id: branchId }),
+    });
+  },
+
+  editMessage(
+    messageId: string,
+    body: {
+      branch_id: string;
+      content: string;
+      selection_mode: SelectionMode;
+      model_key: string | null;
+    },
+  ): Promise<GenerationOperationResponse> {
+    return request(`/messages/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  listBranches(conversationId: string): Promise<BranchList> {
+    return request(`/conversations/${conversationId}/branches`);
+  },
+
+  activateBranch(
+    conversationId: string,
+    branchId: string,
+  ): Promise<BranchActivationResponse> {
+    return request(`/conversations/${conversationId}/branches/${branchId}/activate`, {
+      method: "POST",
+    });
+  },
+
   sendMessage(
     conversationId: string,
     body: SendMessageRequest,
@@ -84,4 +149,3 @@ export const api = {
     return request(`/conversations/${id}`, { method: "DELETE" });
   },
 };
-

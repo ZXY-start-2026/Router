@@ -22,13 +22,14 @@ describe("ConversationList", () => {
         hasMore={false}
         error={null}
         onSelect={onSelect}
+        onDelete={vi.fn()}
         onCreate={vi.fn()}
         onLoadMore={vi.fn()}
       />,
     );
     expect(screen.getByText("测试会话")).toBeInTheDocument();
     expect(screen.getByText("最近一条消息")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /测试会话/ }));
+    fireEvent.click(screen.getByRole("button", { name: "打开会话“测试会话”" }));
     expect(onSelect).toHaveBeenCalledWith("conversation-1");
   });
 
@@ -42,6 +43,7 @@ describe("ConversationList", () => {
         hasMore
         error={null}
         onSelect={vi.fn()}
+        onDelete={vi.fn()}
         onCreate={vi.fn()}
         onLoadMore={onLoadMore}
       />,
@@ -54,5 +56,35 @@ describe("ConversationList", () => {
     });
     fireEvent.scroll(scrollArea);
     expect(onLoadMore).toHaveBeenCalledOnce();
+  });
+
+  it("二次确认后才删除会话", () => {
+    const onDelete = vi.fn();
+    render(
+      <ConversationList
+        items={[item]}
+        currentId={null}
+        loading={false}
+        hasMore={false}
+        error={null}
+        onSelect={vi.fn()}
+        onDelete={onDelete}
+        onCreate={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "删除会话“测试会话”" }));
+    expect(screen.getByRole("dialog", { name: "删除会话？" })).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "删除会话“测试会话”" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    expect(onDelete).toHaveBeenCalledOnce();
+    expect(onDelete).toHaveBeenCalledWith("conversation-1");
   });
 });

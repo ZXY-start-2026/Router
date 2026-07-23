@@ -15,6 +15,16 @@ from app.schemas.chat import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from app.schemas.branches import (
+    ActivateAnswerRequest,
+    AnswerActivationResponse,
+    AnswerVersionsResponse,
+    BranchActivationResponse,
+    BranchListResponse,
+    EditMessageRequest,
+    GenerationOperationResponse,
+    RegenerateRequest,
+)
 from app.schemas.common import CursorPage, HealthResponse
 from app.schemas.generation import GenerationTaskResponse
 from app.schemas.conversations import (
@@ -24,6 +34,8 @@ from app.schemas.conversations import (
     UpdateConversationRequest,
 )
 from app.services.chat import ChatService
+from app.services.answers import AnswerService
+from app.services.branches import BranchService
 from app.services.conversations import ConversationService
 
 
@@ -146,6 +158,100 @@ def get_generation_task(
     providers: ProviderRegistry = Depends(get_providers),
 ) -> GenerationTaskResponse:
     return ChatService(session, settings, providers).get_generation_task(task_id)
+
+
+@router.get(
+    "/messages/{message_id}/answers",
+    response_model=AnswerVersionsResponse,
+)
+def list_answer_versions(
+    message_id: str,
+    branch_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> AnswerVersionsResponse:
+    return AnswerService(session, settings, providers).list_versions(
+        message_id, branch_id
+    )
+
+
+@router.post(
+    "/messages/{message_id}/regenerations",
+    response_model=GenerationOperationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def regenerate_answer(
+    message_id: str,
+    body: RegenerateRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> GenerationOperationResponse:
+    return AnswerService(session, settings, providers).regenerate(message_id, body)
+
+
+@router.post(
+    "/messages/{message_id}/answers/{answer_id}/activate",
+    response_model=AnswerActivationResponse,
+)
+def activate_answer(
+    message_id: str,
+    answer_id: str,
+    body: ActivateAnswerRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> AnswerActivationResponse:
+    return AnswerService(session, settings, providers).activate(
+        message_id, answer_id, body
+    )
+
+
+@router.patch(
+    "/messages/{message_id}",
+    response_model=GenerationOperationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def edit_message(
+    message_id: str,
+    body: EditMessageRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> GenerationOperationResponse:
+    return BranchService(session, settings, providers).edit_user_message(
+        message_id, body
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/branches",
+    response_model=BranchListResponse,
+)
+def list_branches(
+    conversation_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> BranchListResponse:
+    return BranchService(session, settings, providers).list(conversation_id)
+
+
+@router.post(
+    "/conversations/{conversation_id}/branches/{branch_id}/activate",
+    response_model=BranchActivationResponse,
+)
+def activate_branch(
+    conversation_id: str,
+    branch_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> BranchActivationResponse:
+    return BranchService(session, settings, providers).activate(
+        conversation_id, branch_id
+    )
 
 
 @router.get("/models", response_model=list[ModelOptionResponse])

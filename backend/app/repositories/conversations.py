@@ -44,6 +44,28 @@ class ConversationRepository:
             return None
         return self.session.get(Branch, conversation.active_branch_id)
 
+    def get_branch(self, branch_id: str) -> Branch | None:
+        return self.session.get(Branch, branch_id)
+
+    def list_branches(self, conversation_id: str) -> list[Branch]:
+        return list(
+            self.session.scalars(
+                select(Branch)
+                .where(
+                    Branch.conversation_id == conversation_id,
+                    Branch.status == BranchStatus.ACTIVE,
+                )
+                .order_by(Branch.created_at.asc(), Branch.id.asc())
+            )
+        )
+
+    def set_active_branch(
+        self, conversation: Conversation, branch: Branch
+    ) -> Conversation:
+        conversation.active_branch_id = branch.id
+        self.touch(conversation)
+        return conversation
+
     def list_page(
         self,
         limit: int,

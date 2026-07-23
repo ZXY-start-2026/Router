@@ -118,9 +118,11 @@ class ConversationService:
     def _generation_status(latest) -> GenerationStatus:
         if latest is None:
             return GenerationStatus.IDLE
+        if latest.active_answer is not None:
+            return GenerationStatus.SUCCEEDED
         mapping = {
             UserMessageStatus.PENDING: GenerationStatus.GENERATING,
-            UserMessageStatus.HAS_ACTIVE_ANSWER: GenerationStatus.SUCCEEDED,
+            UserMessageStatus.HAS_ACTIVE_ANSWER: GenerationStatus.FAILED,
             UserMessageStatus.GENERATION_FAILED: GenerationStatus.FAILED,
         }
         return mapping[latest.user_message.status]
