@@ -97,7 +97,7 @@ describe("MessageItem", () => {
   it("编辑消息时创建自动路由分支请求", async () => {
     const props = renderItem();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "编辑" }));
+    await user.click(screen.getByRole("button", { name: "编辑消息" }));
     const editor = screen.getByLabelText("编辑消息内容");
     await user.clear(editor);
     await user.type(editor, "修改后的问题");
@@ -105,6 +105,27 @@ describe("MessageItem", () => {
     expect(props.onEditMessage).toHaveBeenCalledWith(
       "message-1",
       "修改后的问题",
+      { selectionMode: "AUTO_ROUTE", modelKey: null },
+    );
+  });
+
+  it("编辑消息时 Enter 发送，Shift+Enter 换行", async () => {
+    const props = renderItem();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "编辑消息" }));
+    const editor = screen.getByLabelText("编辑消息内容");
+    await user.clear(editor);
+    await user.type(editor, "第一行");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    await user.type(editor, "第二行");
+
+    expect(editor).toHaveValue("第一行\n第二行");
+    expect(props.onEditMessage).not.toHaveBeenCalled();
+
+    await user.keyboard("{Enter}");
+    expect(props.onEditMessage).toHaveBeenCalledWith(
+      "message-1",
+      "第一行\n第二行",
       { selectionMode: "AUTO_ROUTE", modelKey: null },
     );
   });
