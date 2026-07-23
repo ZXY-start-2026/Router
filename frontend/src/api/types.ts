@@ -64,6 +64,7 @@ export interface Answer {
   predicted_cost?: string | null;
   actual_cost?: string | null;
   price_version?: string | null;
+  finish_reason?: string | null;
 }
 
 export interface BranchTurn {

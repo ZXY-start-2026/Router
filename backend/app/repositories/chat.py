@@ -6,7 +6,12 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.enums import AnswerVersionStatus, SelectionMode, UserMessageStatus
+from app.core.enums import (
+    AnswerVersionStatus,
+    AttemptStatus,
+    SelectionMode,
+    UserMessageStatus,
+)
 from app.core.errors import ConflictError
 from app.db.models_core import (
     AssistantAnswerVersion,
@@ -15,6 +20,7 @@ from app.db.models_core import (
     UserMessage,
     utc_now,
 )
+from app.db.models_generation import GenerationAttempt
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +28,7 @@ class EffectiveTurn:
     branch_message: BranchMessage
     user_message: UserMessage
     active_answer: AssistantAnswerVersion | None
+    finish_reason: str | None
 
 
 class ChatRepository:
@@ -64,7 +71,12 @@ class ChatRepository:
 
     def list_effective_messages(self, branch_id: str) -> list[EffectiveTurn]:
         rows = self.session.execute(
-            select(BranchMessage, UserMessage, AssistantAnswerVersion)
+            select(
+                BranchMessage,
+                UserMessage,
+                AssistantAnswerVersion,
+                self._successful_finish_reason(),
+            )
             .join(UserMessage, UserMessage.id == BranchMessage.user_message_id)
             .outerjoin(
                 AssistantAnswerVersion,
@@ -73,7 +85,7 @@ class ChatRepository:
             .where(BranchMessage.branch_id == branch_id)
             .order_by(BranchMessage.logical_position.asc())
         ).all()
-        return [EffectiveTurn(link, message, answer) for link, message, answer in rows]
+        return [EffectiveTurn(*row) for row in rows]
 
     def finalize_answer(
         self,
@@ -145,7 +157,12 @@ class ChatRepository:
 
     def latest_turn(self, branch_id: str) -> EffectiveTurn | None:
         turns = self.session.execute(
-            select(BranchMessage, UserMessage, AssistantAnswerVersion)
+            select(
+                BranchMessage,
+                UserMessage,
+                AssistantAnswerVersion,
+                self._successful_finish_reason(),
+            )
             .join(UserMessage, UserMessage.id == BranchMessage.user_message_id)
             .outerjoin(
                 AssistantAnswerVersion,
@@ -158,6 +175,21 @@ class ChatRepository:
         if turns is None:
             return None
         return EffectiveTurn(*turns)
+
+    @staticmethod
+    def _successful_finish_reason():
+        return (
+            select(GenerationAttempt.finish_reason)
+            .where(
+                GenerationAttempt.generation_task_id
+                == AssistantAnswerVersion.generation_task_id,
+                GenerationAttempt.status == AttemptStatus.SUCCEEDED,
+            )
+            .order_by(GenerationAttempt.attempt_index.desc())
+            .limit(1)
+            .correlate(AssistantAnswerVersion)
+            .scalar_subquery()
+        )
 
     def _deactivate_if_unreferenced(self, answer_id: str) -> None:
         references = self.session.scalar(

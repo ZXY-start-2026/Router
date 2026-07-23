@@ -38,6 +38,37 @@ describe("ChatPanel", () => {
     expect(selector).toHaveValue("AUTO_ROUTE");
   });
 
+  it("Enter 发送消息，Shift+Enter 插入换行", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn().mockResolvedValue({});
+    render(
+      <ChatPanel
+        conversation={conversation}
+        messages={[]}
+        models={[]}
+        loading={false}
+        submitting={false}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+    const input = screen.getByLabelText("消息内容");
+
+    await user.type(input, "第一行");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    await user.type(input, "第二行");
+
+    expect(input).toHaveValue("第一行\n第二行");
+    expect(onSend).not.toHaveBeenCalled();
+
+    await user.keyboard("{Enter}");
+
+    expect(onSend).toHaveBeenCalledWith("第一行\n第二行", {
+      selectionMode: "AUTO_ROUTE",
+      modelKey: null,
+    });
+  });
+
   it("展示当前回答元信息", () => {
     render(
       <ChatPanel
@@ -72,6 +103,87 @@ describe("ChatPanel", () => {
     );
     expect(screen.getByText("回答")).toBeInTheDocument();
     expect(screen.getByText("MODEL_A · 自动路由")).toBeInTheDocument();
+  });
+
+  it("回答达到长度上限时显示截断提示", () => {
+    render(
+      <ChatPanel
+        conversation={conversation}
+        messages={[
+          {
+            user_message: {
+              id: "u1",
+              content: "问题",
+              status: "HAS_ACTIVE_ANSWER",
+              logical_position: 1,
+              created_at: "2026-07-21T10:00:00Z",
+            },
+            active_answer: {
+              id: "a1",
+              content: "未完成的回答",
+              model_key: "MODEL_B",
+              model_id: "truncated-model",
+              selection_mode: "AUTO_ROUTE",
+              status: "SUCCEEDED_ACTIVE",
+              finish_reason: "length",
+              created_at: "2026-07-21T10:00:00Z",
+              completed_at: "2026-07-21T10:00:01Z",
+            },
+          },
+        ]}
+        models={[]}
+        loading={false}
+        submitting={false}
+        error={null}
+        onSend={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("回答因达到长度上限而被截断，请缩小问题范围或重新生成。"),
+    ).toBeInTheDocument();
+  });
+
+  it("可以复制问题和回答", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    render(
+      <ChatPanel
+        conversation={conversation}
+        messages={[
+          {
+            user_message: {
+              id: "u1",
+              content: "需要复制的问题",
+              status: "HAS_ACTIVE_ANSWER",
+              logical_position: 1,
+              created_at: "2026-07-21T10:00:00Z",
+            },
+            active_answer: {
+              id: "a1",
+              content: "需要复制的回答",
+              model_key: "MODEL_A",
+              model_id: "mock-model_a",
+              selection_mode: "AUTO_ROUTE",
+              status: "SUCCEEDED_ACTIVE",
+              created_at: "2026-07-21T10:00:00Z",
+              completed_at: "2026-07-21T10:00:01Z",
+            },
+          },
+        ]}
+        models={[]}
+        loading={false}
+        submitting={false}
+        error={null}
+        onSend={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "复制问题" }));
+    await user.click(screen.getByRole("button", { name: "复制回答" }));
+
+    expect(writeText).toHaveBeenNthCalledWith(1, "需要复制的问题");
+    expect(writeText).toHaveBeenNthCalledWith(2, "需要复制的回答");
   });
 
   it("发送失败时保留正文但复位单次模型选择", async () => {

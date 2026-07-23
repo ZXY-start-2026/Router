@@ -78,6 +78,7 @@ select:focus-visible {
 
 .brand-row,
 .chat-header,
+.message-heading,
 .assistant-heading,
 .composer-actions,
 .conversation-meta {
@@ -361,6 +362,67 @@ h2 {
   font-size: 0.75rem;
 }
 
+.message .answer-truncated-notice {
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-left: 3px solid #b56b3f;
+  color: #7b4327;
+  background: #fff3e8;
+  font-size: 0.84rem;
+}
+
+.message-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copy-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.copy-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message:hover .copy-button,
+.copy-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.copy-button:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+@media (hover: none) {
+  .copy-button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .failed-answer {
   border-color: #bd887a;
   color: var(--muted);
@@ -500,4 +562,3 @@ h2 {
     margin-bottom: 12px;
   }
 }
-

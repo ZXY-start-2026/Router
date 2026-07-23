@@ -5,7 +5,7 @@ from app.core.config import Settings
 from app.db.models_core import AssistantAnswerVersion, BranchMessage, UserMessage
 from app.db.session import Base
 from app.main import create_app
-from app.providers.model import UnavailableModelProvider
+from app.providers.model import ModelResult, UnavailableModelProvider
 
 
 def create_conversation(client: TestClient) -> dict:
@@ -23,6 +23,7 @@ def test_send_message_saves_active_answer(client: TestClient, app) -> None:
     assert body["generation"]["status"] == "SUCCEEDED"
     assert body["active_answer"]["content"] == "Mock 回复：你好"
     assert body["active_answer"]["model_key"] == "MODEL_A"
+    assert body["active_answer"]["finish_reason"] == "stop"
 
     with app.state.session_factory() as session:
         links = session.scalar(select(func.count()).select_from(BranchMessage))
@@ -101,3 +102,36 @@ def test_message_list_uses_active_answer(client: TestClient) -> None:
     body = response.json()
     assert len(body["items"]) == 1
     assert body["items"][0]["active_answer"]["content"] == "Mock 回复：列表消息"
+    assert body["items"][0]["active_answer"]["finish_reason"] == "stop"
+
+
+def test_length_finish_reason_is_returned_immediately_and_in_history(
+    client: TestClient, app
+) -> None:
+    def truncated_response(request):
+        return ModelResult(
+            content="未完成的回答",
+            model_key=request.requested_model_key,
+            model_id="truncated-model",
+            input_tokens=10,
+            output_tokens=4096,
+            total_tokens=4106,
+            finish_reason="length",
+            provider_request_id="truncated-request",
+        )
+
+    app.state.providers.model._responder = truncated_response
+    conversation = create_conversation(client)
+    response = client.post(
+        f"/api/v1/conversations/{conversation['id']}/messages",
+        json={"content": "长回答", "selection_mode": "AUTO_ROUTE"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["active_answer"]["finish_reason"] == "length"
+
+    history = client.get(
+        f"/api/v1/conversations/{conversation['id']}/messages"
+    )
+    assert history.status_code == 200
+    assert history.json()["items"][0]["active_answer"]["finish_reason"] == "length"

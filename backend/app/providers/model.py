@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -9,6 +10,45 @@ import requests
 from app.core.config import GenerationConfig, ModelConfig
 from app.core.enums import ErrorCategory
 from app.core.errors import ProviderError
+
+
+COMPLETION_STOP_SEQUENCES = ("\nUser:", "\nSystem:")
+_THINK_BLOCK_PATTERN = re.compile(
+    r"<think(?:\s[^>]*)?>.*?</think\s*>",
+    re.IGNORECASE | re.DOTALL,
+)
+_THINK_OPEN_PATTERN = re.compile(
+    r"<think(?:\s[^>]*)?>",
+    re.IGNORECASE,
+)
+_GENERATED_TURN_PATTERN = re.compile(
+    r"(?im)^[ \t]*(?:user|system)[ \t]*:"
+)
+
+
+def sanitize_completion_text(content: str) -> str:
+    """Keep only the visible answer for storage and future prompt history."""
+    content = _THINK_BLOCK_PATTERN.sub("", content)
+    incomplete_thinking = _THINK_OPEN_PATTERN.search(content)
+    if incomplete_thinking is not None:
+        content = content[: incomplete_thinking.start()]
+    boundary = _GENERATED_TURN_PATTERN.search(content)
+    if boundary is not None:
+        content = content[: boundary.start()]
+    return content.strip()
+
+
+def prompt_for_model(request: ModelRequest, model: ModelConfig) -> str:
+    if not model.disable_thinking:
+        return request.prompt
+    assistant_suffix = "\n\nAssistant:"
+    if request.prompt.endswith(assistant_suffix):
+        return (
+            request.prompt[: -len(assistant_suffix)]
+            + "\n/no_think"
+            + assistant_suffix
+        )
+    return request.prompt + "\n/no_think"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,10 +105,10 @@ class CompletionModelProvider(ModelProvider):
                 provider_code="MODEL_DISABLED",
             )
         payload = {
-            "prompt": request.prompt,
+            "prompt": prompt_for_model(request, model),
             "max_tokens": self.generation.max_tokens,
             "temperature": float(self.generation.temperature),
-            "stop": ["\nUser:"],
+            "stop": list(COMPLETION_STOP_SEQUENCES),
         }
         try:
             response = requests.post(
@@ -146,6 +186,9 @@ class CompletionModelProvider(ModelProvider):
                 raise ValueError("choices")
             content = choices[0].get("text")
             if not isinstance(content, str) or not content.strip():
+                raise ValueError("choices[0].text")
+            content = sanitize_completion_text(content)
+            if not content:
                 raise ValueError("choices[0].text")
             finish_reason = cls._non_empty_string(
                 choices[0].get("finish_reason"), "finish_reason"

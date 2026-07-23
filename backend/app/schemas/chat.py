@@ -60,6 +60,7 @@ class AnswerResponse(BaseModel):
     predicted_cost: Decimal | None = None
     actual_cost: Decimal | None = None
     price_version: str | None = None
+    finish_reason: str | None = None
 
 
 class BranchTurnResponse(BaseModel):
