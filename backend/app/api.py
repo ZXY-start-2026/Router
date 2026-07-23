@@ -155,3 +155,13 @@ def list_models(
     provider: ModelProvider = Depends(get_model_provider),
 ) -> list[ModelOptionResponse]:
     return ConversationService(session, settings, provider).list_model_options()
+
+
+@router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_conversation(
+    conversation_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    provider: ModelProvider = Depends(get_model_provider),
+) -> None:
+    ConversationService(session, settings, provider).archive(conversation_id)

@@ -11,6 +11,7 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onLoadMore: () => void;
+  onDelete: (id: string) => void;
 }
 
 const statusLabels: Record<ConversationListItem["generation_status"], string> = {
@@ -32,6 +33,7 @@ export function ConversationList({
   onSelect,
   onCreate,
   onLoadMore,
+  onDelete,
 }: ConversationListProps) {
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
@@ -54,30 +56,45 @@ export function ConversationList({
       {error && <p className="inline-error">{error}</p>}
       <div className="conversation-scroll" onScroll={handleScroll}>
         {items.map((item) => (
-          <button
-            className={`conversation-card ${item.id === currentId ? "active" : ""}`}
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item.id)}
-          >
-            <span className="conversation-title">{item.title}</span>
-            <span className="conversation-preview">
-              {item.latest_message_preview ?? "尚无消息"}
-            </span>
-            <span className="conversation-meta">
-              <time dateTime={item.updated_at}>
-                {new Date(item.updated_at).toLocaleString("zh-CN", {
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </time>
-              <span className={`status-dot status-${item.generation_status.toLowerCase()}`}>
-                {statusLabels[item.generation_status]}
+          <div className="conversation-card-wrapper" key={item.id}>
+            <button
+              className={`conversation-card ${item.id === currentId ? "active" : ""}`}
+              type="button"
+              onClick={() => onSelect(item.id)}
+            >
+              <span className="conversation-title">{item.title}</span>
+              <span className="conversation-preview">
+                {item.latest_message_preview ?? "尚无消息"}
               </span>
-            </span>
-          </button>
+              <span className="conversation-meta">
+                <time dateTime={item.updated_at}>
+                  {new Date(item.updated_at).toLocaleString("zh-CN", {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+                <span className={`status-dot status-${item.generation_status.toLowerCase()}`}>
+                  {statusLabels[item.generation_status]}
+                </span>
+              </span>
+            </button>
+            <button
+              className="delete-conversation-button"
+              type="button"
+              aria-label="删除会话"
+              title="删除会话"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (window.confirm("确定要删除这个会话吗？")) {
+                  onDelete(item.id);
+                }
+              }}
+            >
+              ×
+            </button>
+          </div>
         ))}
         {!items.length && !loading && <p className="empty-list">创建一个会话开始聊天</p>}
         {loading && <p className="loading-line">正在加载…</p>}

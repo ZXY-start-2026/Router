@@ -161,6 +161,37 @@ h2 {
   text-align: left;
 }
 
+.conversation-card-wrapper {
+  position: relative;
+  margin-bottom: 7px;
+}
+
+.delete-conversation-button {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.conversation-card-wrapper:hover .delete-conversation-button {
+  opacity: 1;
+}
+
+.delete-conversation-button:hover {
+  color: #c44;
+  background: rgba(204, 68, 68, 0.1);
+}
+
 .conversation-card:hover {
   background: rgba(255, 255, 255, 0.48);
 }

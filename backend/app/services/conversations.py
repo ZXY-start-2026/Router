@@ -76,6 +76,11 @@ class ConversationService:
             for option in self.provider.model_options()
         ]
 
+    def archive(self, conversation_id: str) -> None:
+        conversation = self._require_conversation(conversation_id)
+        self.conversations.archive(conversation)
+        self.session.commit()
+
     def _require_conversation(self, conversation_id: str):
         conversation = self.conversations.get(conversation_id)
         if conversation is None:

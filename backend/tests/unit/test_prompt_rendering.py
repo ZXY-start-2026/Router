@@ -15,16 +15,12 @@ def test_prompt_uses_one_stable_completion_format() -> None:
             {"role": "user", "content": "上一问"},
             {"role": "assistant", "content": "上一答"},
         ],
-        search_context_json={
-            "status": "FAILED",
-            "failure_message": "搜索暂不可用",
-            "results": [],
-        },
+        search_context_json={},
         current_user_text="当前问题",
     )
 
     assert ContextService.render(snapshot) == (
-        "System:\n遵守系统规则\n\n联网搜索状态：FAILED。搜索暂不可用\n\n"
+        "System:\n遵守系统规则\n\n"
         "User:\n上一问\n\nAssistant:\n上一答\n\n"
         "User:\n当前问题\n\nAssistant:"
     )

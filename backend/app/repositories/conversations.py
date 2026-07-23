@@ -49,7 +49,11 @@ class ConversationRepository:
         limit: int,
         cursor_key: tuple[datetime, str] | None,
     ) -> list[Conversation]:
-        statement = select(Conversation)
+        statement = (
+            select(Conversation)
+            .join(Branch, Conversation.active_branch_id == Branch.id)
+            .where(Branch.status == BranchStatus.ACTIVE)
+        )
         if cursor_key is not None:
             updated_at, item_id = cursor_key
             statement = statement.where(
@@ -65,6 +69,17 @@ class ConversationRepository:
             Conversation.updated_at.desc(), Conversation.id.desc()
         ).limit(limit + 1)
         return list(self.session.scalars(statement))
+
+    def archive(self, conversation: Conversation) -> None:
+        branches = self.session.scalars(
+            select(Branch).where(
+                Branch.conversation_id == conversation.id,
+                Branch.status == BranchStatus.ACTIVE,
+            )
+        ).all()
+        for branch in branches:
+            branch.status = BranchStatus.ARCHIVED
+        self.touch(conversation)
 
     def update_title(
         self, conversation: Conversation, title: str, source: TitleSource

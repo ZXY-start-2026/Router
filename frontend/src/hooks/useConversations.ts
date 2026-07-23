@@ -75,5 +75,15 @@ export function useConversations() {
     });
   }, []);
 
-  return { items, loading, error, hasMore, loadMore, create, refresh, reload: loadFirstPage };
+  const remove = useCallback(async (conversationId: string) => {
+    setError(null);
+    try {
+      await api.deleteConversation(conversationId);
+      setItems((current) => current.filter((item) => item.id !== conversationId));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "删除失败");
+    }
+  }, []);
+
+  return { items, loading, error, hasMore, loadMore, create, refresh, remove, reload: loadFirstPage };
 }

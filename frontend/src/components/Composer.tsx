@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import type { ModelOption, SelectionMode } from "../api/types";
 import type { ModelSelection } from "../hooks/useChat";
@@ -31,15 +31,24 @@ export function Composer({ models, disabled, onSubmit }: ComposerProps) {
     }
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      const form = event.currentTarget.form;
+      if (form) form.requestSubmit();
+    }
+  };
+
   return (
     <form className="composer" onSubmit={(event) => void handleSubmit(event)}>
       <textarea
         aria-label="消息内容"
-        placeholder="输入消息…"
+        placeholder="输入消息… (Enter 发送, Shift+Enter 换行)"
         rows={3}
         value={content}
         disabled={disabled}
         onChange={(event) => setContent(event.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <div className="composer-actions">
         <label>

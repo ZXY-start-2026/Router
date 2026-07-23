@@ -35,6 +35,11 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  const deleteConversation = async (id: string) => {
+    if (id === currentId) setCurrentId(null);
+    await conversations.remove(id);
+  };
+
   return (
     <AppLayout
       sidebarOpen={sidebarOpen}
@@ -49,6 +54,7 @@ export default function App() {
           onSelect={selectConversation}
           onCreate={() => void createConversation()}
           onLoadMore={() => void conversations.loadMore()}
+          onDelete={(id) => void deleteConversation(id)}
         />
       }
       main={

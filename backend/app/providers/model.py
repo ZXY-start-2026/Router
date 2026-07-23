@@ -68,6 +68,7 @@ class CompletionModelProvider(ModelProvider):
             "prompt": request.prompt,
             "max_tokens": self.generation.max_tokens,
             "temperature": float(self.generation.temperature),
+            "stop": ["\nUser:"],
         }
         try:
             response = requests.post(

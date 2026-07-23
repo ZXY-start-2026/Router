@@ -69,37 +69,15 @@ class ContextService:
 
     @staticmethod
     def render(snapshot: ContextSnapshot) -> str:
-        system_parts = [
-            snapshot.system_rules_text,
-            snapshot.role_text,
-            snapshot.protected_memory_text,
-            snapshot.system_memory_text,
-            ContextService._search_text(snapshot.search_context_json),
-        ]
         blocks: list[str] = []
-        non_empty_system = [part for part in system_parts if part]
-        if non_empty_system:
-            blocks.append("System:\n" + "\n\n".join(non_empty_system))
+
+        if snapshot.system_rules_text:
+            blocks.append(f"System:\n{snapshot.system_rules_text}")
+
         for item in snapshot.history_json:
             role = "User" if item.get("role") == "user" else "Assistant"
             blocks.append(f"{role}:\n{item.get('content', '')}")
+
         blocks.append(f"User:\n{snapshot.current_user_text}")
         blocks.append("Assistant:")
         return "\n\n".join(blocks)
-
-    @staticmethod
-    def _search_text(value: dict[str, object]) -> str:
-        status = str(value.get("status", "FAILED"))
-        results = value.get("results")
-        if isinstance(results, list) and results:
-            lines = ["联网搜索上下文："]
-            for index, item in enumerate(results, start=1):
-                if isinstance(item, dict):
-                    lines.append(
-                        f"{index}. {item.get('title', '')}\n{item.get('snippet', '')}"
-                    )
-            return "\n".join(lines)
-        message = value.get("failure_message")
-        if message:
-            return f"联网搜索状态：{status}。{message}"
-        return f"联网搜索状态：{status}，未获得有效结果。"

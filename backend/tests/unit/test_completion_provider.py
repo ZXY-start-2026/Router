@@ -49,6 +49,7 @@ def test_completion_request_has_only_confirmed_fields(monkeypatch) -> None:
         "prompt": "prompt",
         "max_tokens": 1024,
         "temperature": 0.7,
+        "stop": ["\nUser:"],
     }
 
 

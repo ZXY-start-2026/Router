@@ -79,5 +79,9 @@ export const api = {
   listModels(): Promise<ModelOption[]> {
     return request("/models");
   },
+
+  deleteConversation(id: string): Promise<void> {
+    return request(`/conversations/${id}`, { method: "DELETE" });
+  },
 };
 
