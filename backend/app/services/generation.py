@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -25,6 +26,8 @@ from app.repositories.generation import GenerationRepository
 from app.services.context import ContextService
 from app.services.routing import RoutePlan
 from app.services.routing import RoutingService
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,9 +264,19 @@ class GenerationService:
                         if model_index == 0
                         else SelectionMode.AUTO_FALLBACK
                     )
+                    logger.info(
+                        "attempt task=%s model=%s rank=%d attempt=%d mode=%s result=OK tokens=(%d,%d)",
+                        task.id, model_key, model_index + 1, attempt_number + 1,
+                        mode, result.input_tokens, result.output_tokens,
+                    )
                     return GenerationOutcome(result, model, mode)
                 assert error is not None
                 last_error = error
+                logger.warning(
+                    "attempt task=%s model=%s rank=%d attempt=%d mode=FAIL category=%s code=%s retryable=%s",
+                    task.id, model_key, model_index + 1, attempt_number + 1,
+                    error.category, error.provider_code, error.retryable,
+                )
                 if error.global_stop:
                     return GenerationOutcome(None, None, task.selection_mode, error)
                 if attempt_number == 0 and error.retryable:
@@ -272,6 +285,10 @@ class GenerationService:
                 break
             if last_error and not last_error.fallback_allowed:
                 break
+        logger.error(
+            "task=%s exhausted models=%s",
+            task.id, list(route_plan.ordered_model_keys),
+        )
         return GenerationOutcome(None, None, task.selection_mode, last_error)
 
     def execute_manual(

@@ -20,7 +20,7 @@ def test_prompt_uses_one_stable_completion_format() -> None:
     )
 
     assert ContextService.render(snapshot) == (
-        "System:\n遵守系统规则\n\n"
+        "System:\n遵守系统规则\n\n联网搜索状态：FAILED，未获得有效结果。\n\n"
         "User:\n上一问\n\nAssistant:\n上一答\n\n"
         "User:\n当前问题\n\nAssistant:"
     )

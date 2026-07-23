@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from time import perf_counter
@@ -12,6 +13,8 @@ from app.db.models_generation import GenerationTask, RouteSnapshot
 from app.providers.router import RouterCandidateInput, RouterProvider, RouterRequest
 from app.providers.tokenizer import TokenizerProvider
 from app.repositories.generation import GenerationRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,8 +128,16 @@ class RoutingService:
             },
             candidates=rows,
         )
-        print(rows)
-        print(scored)
+        ranked = [
+            (row["model_key"], row["rank"], round(float(row["route_score"]), 4),
+             round(float(row["predicted_accuracy"]), 4), round(float(row["cost_score"]), 4))
+            for row in scored
+        ]
+        ineligible = [r["model_key"] for r in rows if not r["eligible"]]
+        logger.info(
+            "route task=%s ranks=%s ineligible=%s latency=%dms",
+            task.id, ranked, ineligible, int((perf_counter() - started) * 1000),
+        )
         return RoutePlan(
             snapshot=snapshot,
             ordered_model_keys=tuple(str(row["model_key"]) for row in scored),
