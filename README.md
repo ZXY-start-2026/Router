@@ -59,3 +59,13 @@ pnpm build
 - `backend/alembic`：迭代1与迭代2数据库迁移。
 - `frontend/src`：React 页面、API 客户端、Hooks 与组件。
 - `backend/tests`、`frontend/src/test`：自动化测试。
+
+## 变更日志
+
+### 2026-07-23
+- **Prompt 修复**：回归 `User:/Assistant:` 格式，HTTP 请求仅含 `prompt`/`max_tokens`/`temperature`/`stop`，`stop: ["\nUser:"]` 防止模型自我循环输出
+- **新增**：`DELETE /api/v1/conversations/{id}` 软删除端点，数据保留仅标记 ARCHIVED，列表自动过滤
+- **新增**：Enter 发送消息，Shift+Enter 换行
+- **新增**：会话卡片删除按钮（hover 显示），`window.confirm` 二次确认
+- **新增**：迭代3实施计划文档 `docs/iteration3-plan.md`
+- 后端 19 个测试、前端 6 个测试全部通过
