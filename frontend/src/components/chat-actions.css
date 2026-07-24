@@ -1,8 +1,18 @@
 .branch-switcher {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.branch-switcher > span {
+  white-space: nowrap;
+}
+
+.branch-switcher select {
+  width: 190px;
 }
 
 .branch-switcher select,
@@ -196,6 +206,14 @@
 }
 
 @media (max-width: 620px) {
+  .branch-switcher {
+    width: 100%;
+  }
+
+  .branch-switcher select {
+    width: min(190px, 100%);
+  }
+
   .version-dialog-content {
     grid-template-columns: 1fr;
   }

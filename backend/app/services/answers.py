@@ -27,6 +27,7 @@ from app.schemas.chat import GenerationResultSummary
 from app.services.branches import BranchService
 from app.services.chat import ChatService
 from app.services.generation import GenerationService
+from app.services.memories import MemoryService
 
 
 class AnswerService:
@@ -112,6 +113,13 @@ class AnswerService:
             )
         self.conversations.touch(conversation)
         self.session.commit()
+        if run.status == GenerationStatus.SUCCEEDED:
+            try:
+                MemoryService(
+                    self.session, self.settings, self.providers
+                ).update_if_due(result_branch.id)
+            except Exception:
+                self.session.rollback()
         active = (
             run.answer
             if run.status == GenerationStatus.SUCCEEDED

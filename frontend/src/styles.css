@@ -294,32 +294,62 @@ h2 {
 }
 
 .chat-panel {
+  --chat-content-width: 820px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   height: 100vh;
 }
 
 .chat-header {
-  min-height: 88px;
-  padding: 18px clamp(24px, 5vw, 72px);
+  grid-row: 1;
+  min-height: 72px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--line);
   background: rgba(251, 250, 246, 0.84);
   backdrop-filter: blur(10px);
 }
 
+.chat-header-inner {
+  display: flex;
+  width: min(var(--chat-content-width), 100%);
+  min-height: 48px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.chat-header-inner h2 {
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+}
+
 .header-status {
+  flex: none;
   padding: 7px 11px;
   border: 1px solid currentColor;
   border-radius: 999px;
   font-size: 0.75rem;
 }
 
+.chat-branch-toolbar {
+  grid-row: 2;
+  padding: 9px 24px;
+  border-bottom: 1px solid rgba(216, 209, 196, 0.72);
+  background: rgba(244, 241, 234, 0.7);
+}
+
+.chat-branch-toolbar-inner {
+  width: min(var(--chat-content-width), 100%);
+  margin: 0 auto;
+}
+
 .message-scroll {
-  padding: 28px clamp(24px, 8vw, 112px) 60px;
+  grid-row: 3;
+  padding: 26px 24px 52px;
 }
 
 .turn {
-  width: min(820px, 100%);
+  width: min(var(--chat-content-width), 100%);
   margin: 0 auto 28px;
 }
 
@@ -443,7 +473,8 @@ h2 {
 }
 
 .chat-error {
-  width: min(820px, calc(100% - 48px));
+  grid-row: 4;
+  width: min(var(--chat-content-width), calc(100% - 48px));
   margin: 0 auto 10px;
   padding: 10px 14px;
   border-radius: 8px;
@@ -451,7 +482,8 @@ h2 {
 }
 
 .composer {
-  width: min(860px, calc(100% - 48px));
+  grid-row: 5;
+  width: min(720px, calc(100% - 48px));
   margin: 0 auto 24px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -549,7 +581,21 @@ h2 {
   }
 
   .chat-header {
-    padding-left: 80px;
+    padding-right: 12px;
+    padding-left: 72px;
+  }
+
+  .chat-branch-toolbar {
+    padding-right: 12px;
+    padding-left: 72px;
+  }
+
+  .chat-header-inner {
+    gap: 12px;
+  }
+
+  .header-status {
+    padding: 6px 9px;
   }
 
   .user-message {

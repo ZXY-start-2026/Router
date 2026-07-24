@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -43,6 +44,18 @@ def sanitize_completion_text(content: str) -> str:
 
 
 def prompt_for_model(request: ModelRequest, model: ModelConfig) -> str:
+    if request.current_user_text == "[MEMORY_TASK]":
+        if model.disable_thinking:
+            return (
+                "User:\n"
+                + request.prompt
+                + "\n/no_think\n\nAssistant:"
+            )
+        return (
+            "<start_of_turn>user\n"
+            + request.prompt
+            + "<end_of_turn>\n<start_of_turn>model\n"
+        )
     if not model.disable_thinking:
         return request.prompt
     assistant_suffix = "\n\nAssistant:"
@@ -274,7 +287,27 @@ class MockModelProvider(ModelProvider):
 
     @staticmethod
     def _default_response(request: ModelRequest) -> ModelResult:
-        content = f"Mock 回复：{request.current_user_text}"
+        if request.current_user_text == "[MEMORY_TASK]":
+            try:
+                payload = json.loads(request.prompt.rsplit("\n", 1)[-1])
+                current = str(payload.get("current_summary", "")).strip()
+                additions = payload.get("new_complete_turns", [])
+                snippets = [
+                    f"{item.get('user', '')} / {item.get('assistant', '')}"
+                    for item in additions
+                    if isinstance(item, dict)
+                ]
+                summary = "\n".join(
+                    part for part in (current, *snippets) if part
+                )
+            except (ValueError, TypeError):
+                summary = ""
+            content = json.dumps(
+                {"summary": summary, "conflicts": []},
+                ensure_ascii=False,
+            )
+        else:
+            content = f"Mock 回复：{request.current_user_text}"
         input_tokens = max(1, len(request.prompt.encode("utf-8")) // 3)
         output_tokens = max(1, len(content.encode("utf-8")) // 3)
         return ModelResult(

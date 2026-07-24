@@ -81,6 +81,12 @@ class ContextSnapshot(Base):
     search_snapshot_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("search_snapshots.id"), nullable=False
     )
+    memory_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("memory_versions.id"), nullable=True
+    )
+    role_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("role_versions.id"), nullable=True
+    )
     system_rules_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
     role_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
     protected_memory_text: Mapped[str] = mapped_column(Text, nullable=False, default="")

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.db import models_core
+from app.db import models_generation, models_memory, models_role
 from app.db.session import Base
 from app.main import create_app
 from app.providers.model import MockModelProvider

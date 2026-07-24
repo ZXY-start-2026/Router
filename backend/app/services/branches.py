@@ -24,6 +24,8 @@ from app.schemas.branches import (
 from app.schemas.chat import GenerationResultSummary
 from app.services.chat import ChatService
 from app.services.generation import GenerationService
+from app.services.memories import MemoryService
+from app.services.roles import RoleService
 
 
 class BranchService:
@@ -56,6 +58,15 @@ class BranchService:
         self.chat.copy_links(
             source_branch.id, branch.id, source_link.logical_position - 1
         )
+        MemoryService(
+            self.session, self.settings, self.providers
+        ).inherit_for_branch(source_branch, branch, source_link.logical_position)
+        RoleService(self.session).inherit_for_branch(
+            source_branch,
+            branch,
+            source_link.logical_position,
+            source_link.active_answer_version_id,
+        )
         message, link = self.chat.append_user_message(
             branch,
             request.content,
@@ -79,6 +90,8 @@ class BranchService:
             self.chat.activate_answer(branch, link, message, run.answer)
         self.conversations.touch(conversation)
         self.session.commit()
+        if run.status == GenerationStatus.SUCCEEDED:
+            self._update_memory_safely(branch.id)
         return GenerationOperationResponse(
             conversation_id=conversation.id,
             branch_id=branch.id,
@@ -114,6 +127,15 @@ class BranchService:
         self.chat.copy_links(
             source_branch.id, branch.id, source_link.logical_position
         )
+        MemoryService(
+            self.session, self.settings, self.providers
+        ).inherit_for_branch(source_branch, branch, source_link.logical_position)
+        RoleService(self.session).inherit_for_branch(
+            source_branch,
+            branch,
+            source_link.logical_position,
+            answer.id,
+        )
         target_link = self.chat.get_branch_message(
             branch.id, source_link.user_message_id
         )
@@ -123,6 +145,14 @@ class BranchService:
         self.chat.activate_answer(branch, target_link, message, answer)
         self.conversations.set_active_branch(conversation, branch)
         return branch
+
+    def _update_memory_safely(self, branch_id: str) -> None:
+        try:
+            MemoryService(
+                self.session, self.settings, self.providers
+            ).update_if_due(branch_id)
+        except Exception:
+            self.session.rollback()
 
     def list(self, conversation_id: str) -> BranchListResponse:
         conversation = self.conversations.get(conversation_id)

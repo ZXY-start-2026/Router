@@ -105,6 +105,35 @@ def test_message_list_uses_active_answer(client: TestClient) -> None:
     assert body["items"][0]["active_answer"]["finish_reason"] == "stop"
 
 
+def test_message_list_cleans_legacy_multi_turn_answer(
+    client: TestClient, app
+) -> None:
+    conversation = create_conversation(client)
+    client.post(
+        f"/api/v1/conversations/{conversation['id']}/messages",
+        json={"content": "旧回答", "selection_mode": "AUTO_ROUTE"},
+    )
+    with app.state.session_factory() as session:
+        answer = session.scalar(select(AssistantAnswerVersion))
+        assert answer is not None
+        answer.content = (
+            "当前回答正文。\n\n"
+            "User:\n模型自己生成的问题\n\n"
+            "Assistant:\n模型自己生成的下一轮回答"
+        )
+        session.commit()
+
+    response = client.get(
+        f"/api/v1/conversations/{conversation['id']}/messages"
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.json()["items"][0]["active_answer"]["content"]
+        == "当前回答正文。"
+    )
+
+
 def test_length_finish_reason_is_returned_immediately_and_in_history(
     client: TestClient, app
 ) -> None:

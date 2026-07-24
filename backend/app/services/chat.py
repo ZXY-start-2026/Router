@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.core.enums import GenerationMode, GenerationStatus, SelectionMode, TitleSource
 from app.core.errors import ConflictError, NotFoundError
 from app.db.models_core import AssistantAnswerVersion, BranchMessage, UserMessage
+from app.providers.model import sanitize_completion_text
 from app.providers.registry import ProviderRegistry
 from app.repositories.chat import ChatRepository, EffectiveTurn
 from app.repositories.conversations import ConversationRepository
@@ -26,6 +27,7 @@ from app.schemas.generation import (
     SearchSnapshotResponse,
 )
 from app.services.generation import GenerationService
+from app.services.memories import MemoryService
 from app.services.title import make_title
 
 
@@ -84,6 +86,13 @@ class ChatService:
             self.chat.activate_answer(branch, link, message, run.answer)
         self.conversations.touch(conversation)
         self.session.commit()
+        if run.status == GenerationStatus.SUCCEEDED:
+            try:
+                MemoryService(
+                    self.session, self.settings, self.providers
+                ).update_if_due(branch.id)
+            except Exception:
+                self.session.rollback()
         return SendMessageResponse(
             user_message=self.user_response(message, link),
             active_answer=(
@@ -200,7 +209,7 @@ class ChatService:
             raise ConflictError("生效回答数据不完整")
         return AnswerResponse(
             id=answer.id,
-            content=answer.content,
+            content=sanitize_completion_text(answer.content),
             model_key=answer.model_key,
             model_id=answer.model_id_snapshot,
             display_name=answer.display_name_snapshot or answer.model_key,

@@ -65,6 +65,12 @@ class Branch(Base):
     branch_point_answer_version_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assistant_answer_versions.id"), nullable=True
     )
+    active_memory_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("memory_versions.id"), nullable=True
+    )
+    active_role_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("role_versions.id"), nullable=True
+    )
     complete_turn_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[BranchStatus] = mapped_column(
         Enum(BranchStatus), nullable=False, default=BranchStatus.ACTIVE

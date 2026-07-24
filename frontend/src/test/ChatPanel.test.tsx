@@ -13,6 +13,46 @@ const conversation = {
 };
 
 describe("ChatPanel", () => {
+  it("将分支工具栏与连接状态分开显示", () => {
+    render(
+      <ChatPanel
+        conversation={conversation}
+        messages={[]}
+        models={[]}
+        loading={false}
+        submitting={false}
+        error={null}
+        onSend={vi.fn()}
+        branches={[
+          {
+            id: "root",
+            parent_branch_id: null,
+            branch_point_type: "ROOT",
+            branch_point_message_id: null,
+            branch_point_answer_version_id: null,
+            complete_turn_count: 1,
+            created_at: "2026-07-23T08:00:00Z",
+            is_active: true,
+          },
+          {
+            id: "edited",
+            parent_branch_id: "root",
+            branch_point_type: "USER_MESSAGE_EDIT",
+            branch_point_message_id: "message-1",
+            branch_point_answer_version_id: null,
+            complete_turn_count: 1,
+            created_at: "2026-07-23T08:01:00Z",
+            is_active: false,
+          },
+        ]}
+        activeBranchId="root"
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "会话分支" })).toBeInTheDocument();
+    expect(screen.getByText("已连接")).toBeInTheDocument();
+  });
+
   it("发送后把单次模型选择恢复为自动路由", async () => {
     const user = userEvent.setup();
     const onSend = vi.fn().mockResolvedValue({});

@@ -7,10 +7,17 @@ import type {
   BranchMessages,
   Conversation,
   ConversationListItem,
+  CurrentMemory,
+  CurrentRole,
   CursorPage,
   GenerationOperationResponse,
+  MemoryOperation,
+  MemoryVersions,
   ModelOption,
   RegenerationMode,
+  RoleContent,
+  RoleTemplate,
+  RoleTemplateList,
   SendMessageRequest,
   SendMessageResponse,
   SelectionMode,
@@ -143,6 +150,65 @@ export const api = {
 
   listModels(): Promise<ModelOption[]> {
     return request("/models");
+  },
+
+  getMemory(branchId: string): Promise<CurrentMemory> {
+    return request(`/branches/${branchId}/memory`);
+  },
+
+  listMemoryVersions(
+    branchId: string,
+    cursor?: string,
+  ): Promise<MemoryVersions> {
+    const params = new URLSearchParams({ limit: "20" });
+    if (cursor) params.set("cursor", cursor);
+    return request(`/branches/${branchId}/memory/versions?${params.toString()}`);
+  },
+
+  updateMemory(
+    branchId: string,
+    protectedUserText: string,
+  ): Promise<MemoryOperation> {
+    return request(`/branches/${branchId}/memory`, {
+      method: "PUT",
+      body: JSON.stringify({ protected_user_text: protectedUserText }),
+    });
+  },
+
+  restoreMemory(branchId: string, versionId: string): Promise<MemoryOperation> {
+    return request(`/branches/${branchId}/memory/versions/${versionId}/restore`, {
+      method: "POST",
+    });
+  },
+
+  getRole(conversationId: string): Promise<CurrentRole> {
+    return request(`/conversations/${conversationId}/role`);
+  },
+
+  updateRole(conversationId: string, content: RoleContent): Promise<CurrentRole> {
+    return request(`/conversations/${conversationId}/role`, {
+      method: "PUT",
+      body: JSON.stringify(content),
+    });
+  },
+
+  deactivateRole(conversationId: string): Promise<CurrentRole> {
+    return request(`/conversations/${conversationId}/role/deactivate`, {
+      method: "POST",
+    });
+  },
+
+  listRoleTemplates(): Promise<RoleTemplateList> {
+    return request("/role-templates");
+  },
+
+  createRoleTemplate(
+    content: Omit<RoleContent, "source_template_id">,
+  ): Promise<RoleTemplate> {
+    return request("/role-templates", {
+      method: "POST",
+      body: JSON.stringify(content),
+    });
   },
 
   deleteConversation(id: string): Promise<void> {

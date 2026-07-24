@@ -111,6 +111,45 @@ def test_thinking_is_disabled_in_prompt_and_removed_from_response(monkeypatch) -
     assert result.content == "Visible answer"
 
 
+def test_memory_task_uses_gemma_turn_template(monkeypatch) -> None:
+    captured = {}
+
+    def post(url, *, json, timeout):
+        captured.update(json=json)
+        return Response()
+
+    monkeypatch.setattr("app.providers.model.requests.post", post)
+    provider = CompletionModelProvider((model(),), GenerationConfig())
+
+    provider.generate(ModelRequest("memory body", "[MEMORY_TASK]", "MODEL_A"))
+
+    assert captured["json"]["prompt"] == (
+        "<start_of_turn>user\n"
+        "memory body"
+        "<end_of_turn>\n<start_of_turn>model\n"
+    )
+
+
+def test_memory_task_disables_thinking_for_supported_model(monkeypatch) -> None:
+    captured = {}
+
+    def post(url, *, json, timeout):
+        captured.update(json=json)
+        return Response()
+
+    monkeypatch.setattr("app.providers.model.requests.post", post)
+    provider = CompletionModelProvider(
+        (model(disable_thinking=True),),
+        GenerationConfig(),
+    )
+
+    provider.generate(ModelRequest("memory body", "[MEMORY_TASK]", "MODEL_A"))
+
+    assert captured["json"]["prompt"] == (
+        "User:\nmemory body\n/no_think\n\nAssistant:"
+    )
+
+
 def test_invalid_usage_is_rejected(monkeypatch) -> None:
     response = Response()
     response.json = lambda: {

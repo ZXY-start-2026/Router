@@ -74,6 +74,17 @@ export default function App() {
           onActivateAnswer={chat.activateAnswer}
           onEditMessage={chat.editMessage}
           onSwitchBranch={chat.switchBranch}
+          memory={chat.memory}
+          memoryVersions={chat.memoryVersions}
+          currentRole={chat.currentRole}
+          roleTemplates={chat.roleTemplates}
+          onLoadMemoryVersions={chat.loadMemoryVersions}
+          onSaveMemory={chat.saveProtectedMemory}
+          onRestoreMemory={chat.restoreMemory}
+          onLoadRoleTemplates={chat.loadRoleTemplates}
+          onSaveRole={chat.saveRole}
+          onDeactivateRole={chat.deactivateRole}
+          onCreateRoleTemplate={chat.createRoleTemplate}
         />
       }
     />

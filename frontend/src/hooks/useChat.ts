@@ -5,8 +5,13 @@ import type {
   AnswerVersions,
   Branch,
   BranchTurn,
+  CurrentMemory,
+  CurrentRole,
+  MemoryVersions,
   ModelOption,
   RegenerationMode,
+  RoleContent,
+  RoleTemplate,
   SelectionMode,
   SendMessageResponse,
 } from "../api/types";
@@ -25,6 +30,10 @@ export function useChat(
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const [answerVersions, setAnswerVersions] = useState<Record<string, AnswerVersions>>({});
+  const [memory, setMemory] = useState<CurrentMemory | null>(null);
+  const [memoryVersions, setMemoryVersions] = useState<MemoryVersions | null>(null);
+  const [currentRole, setCurrentRole] = useState<CurrentRole | null>(null);
+  const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +44,9 @@ export function useChat(
       setBranches([]);
       setActiveBranchId(null);
       setAnswerVersions({});
+      setMemory(null);
+      setMemoryVersions(null);
+      setCurrentRole(null);
       return;
     }
     setLoading(true);
@@ -47,6 +59,13 @@ export function useChat(
       setMessages(messageResult.items);
       setBranches(branchResult.items);
       setActiveBranchId(branchResult.active_branch_id);
+      const [memoryResult, roleResult] = await Promise.all([
+        api.getMemory(branchResult.active_branch_id),
+        api.getRole(conversationId),
+      ]);
+      setMemory(memoryResult);
+      setCurrentRole(roleResult);
+      setMemoryVersions(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "消息加载失败");
     } finally {
@@ -175,12 +194,75 @@ export function useChat(
     [activeBranchId, conversationId, runAction],
   );
 
+  const loadMemoryVersions = useCallback(async (): Promise<MemoryVersions> => {
+    if (!activeBranchId) throw new Error("当前分支不存在");
+    if (memoryVersions) return memoryVersions;
+    const result = await api.listMemoryVersions(activeBranchId);
+    setMemoryVersions(result);
+    return result;
+  }, [activeBranchId, memoryVersions]);
+
+  const saveProtectedMemory = useCallback(
+    async (text: string) => {
+      if (!activeBranchId) throw new Error("当前分支不存在");
+      const result = await runAction(() => api.updateMemory(activeBranchId, text));
+      setMemoryVersions(null);
+      return result;
+    },
+    [activeBranchId, runAction],
+  );
+
+  const restoreMemory = useCallback(
+    async (versionId: string) => {
+      if (!activeBranchId) throw new Error("当前分支不存在");
+      const result = await runAction(() =>
+        api.restoreMemory(activeBranchId, versionId),
+      );
+      setMemoryVersions(null);
+      return result;
+    },
+    [activeBranchId, runAction],
+  );
+
+  const loadRoleTemplates = useCallback(async (): Promise<RoleTemplate[]> => {
+    if (roleTemplates.length) return roleTemplates;
+    const result = await api.listRoleTemplates();
+    setRoleTemplates(result.items);
+    return result.items;
+  }, [roleTemplates]);
+
+  const saveRole = useCallback(
+    async (content: RoleContent) => {
+      if (!conversationId) throw new Error("请先创建会话");
+      return runAction(() => api.updateRole(conversationId, content));
+    },
+    [conversationId, runAction],
+  );
+
+  const deactivateRole = useCallback(async () => {
+    if (!conversationId) throw new Error("请先创建会话");
+    return runAction(() => api.deactivateRole(conversationId));
+  }, [conversationId, runAction]);
+
+  const createRoleTemplate = useCallback(
+    async (content: Omit<RoleContent, "source_template_id">) => {
+      const created = await runAction(() => api.createRoleTemplate(content));
+      setRoleTemplates((current) => [...current, created]);
+      return created;
+    },
+    [runAction],
+  );
+
   return {
     messages,
     models,
     branches,
     activeBranchId,
     answerVersions,
+    memory,
+    memoryVersions,
+    currentRole,
+    roleTemplates,
     loading,
     submitting,
     error,
@@ -190,6 +272,13 @@ export function useChat(
     editMessage,
     switchBranch,
     loadAnswerVersions,
+    loadMemoryVersions,
+    saveProtectedMemory,
+    restoreMemory,
+    loadRoleTemplates,
+    saveRole,
+    deactivateRole,
+    createRoleTemplate,
     reload,
   };
 }

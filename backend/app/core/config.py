@@ -53,6 +53,14 @@ class RouterConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class MemoryConfig:
+    n: int = 10
+    k: int = 5
+    m: int = 5
+    model_id: str = "MODEL_A"
+
+
+@dataclass(frozen=True, slots=True)
 class ModelConfig:
     model_key: str
     display_name: str
@@ -98,6 +106,7 @@ class Settings:
     price_version: str = "2026-07-user-confirmed-v1"
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     router: RouterConfig = field(default_factory=RouterConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
     models: tuple[ModelConfig, ...] = ()
 
     @classmethod
@@ -165,6 +174,12 @@ class Settings:
                     os.getenv("ROUTER_ASSET_DIR", "resources/router")
                 )
             ),
+            memory=MemoryConfig(
+                n=int(os.getenv("MEMORY_N", "10")),
+                k=int(os.getenv("MEMORY_K", "5")),
+                m=int(os.getenv("MEMORY_M", "5")),
+                model_id=os.getenv("MEMORY_MODEL_ID", "MODEL_A").strip(),
+            ),
             models=models,
         )
         settings.validate_runtime()
@@ -222,6 +237,12 @@ class Settings:
             raise ValueError("generation.temperature must be 0.7")
         if self.generation.logprobs is not None or self.generation.logprobs_mode is not None:
             raise ValueError("logprobs and logprobs_mode must be null")
+        if self.memory.n <= self.memory.k or self.memory.k < 0:
+            raise ValueError("MEMORY_N must be greater than MEMORY_K >= 0")
+        if self.memory.m <= 0:
+            raise ValueError("MEMORY_M must be positive")
+        if self.memory.model_id not in MODEL_KEYS:
+            raise ValueError("MEMORY_MODEL_ID must be MODEL_A, MODEL_B, or MODEL_C")
         if self.mock_provider_enabled:
             return
         if tuple(model.model_key for model in self.models) != MODEL_KEYS:
@@ -250,5 +271,8 @@ class Settings:
                 raise ValueError(f"endpoint_url must end with /v1/completions for {model.model_key}")
             if model.tokenizer_path is None:
                 raise ValueError(f"Missing tokenizer_path for {model.model_key}")
+        memory_model = self.model(self.memory.model_id)
+        if memory_model is None or not memory_model.enabled:
+            raise ValueError("MEMORY_MODEL_ID must reference an enabled model")
         if not self.router.asset_dir.exists():
             raise ValueError(f"Router asset directory does not exist: {self.router.asset_dir}")

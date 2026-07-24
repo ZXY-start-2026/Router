@@ -10,6 +10,9 @@ from app.db.models_generation import ContextSnapshot, SearchSnapshot
 from app.providers.model import sanitize_completion_text
 from app.repositories.chat import ChatRepository
 from app.repositories.generation import GenerationRepository
+from app.repositories.memories import MemoryRepository
+from app.repositories.roles import RoleRepository
+from app.services.roles import RoleService
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +28,8 @@ class ContextService:
         self.settings = settings
         self.chat = ChatRepository(session)
         self.generation = GenerationRepository(session)
+        self.memories = MemoryRepository(session)
+        self.roles = RoleRepository(session)
 
     def prepare(
         self,
@@ -33,10 +38,20 @@ class ContextService:
         message: UserMessage,
         search_snapshot: SearchSnapshot,
     ) -> PreparedContext:
+        memory = self.memories.get_current(branch_id)
+        role = self.roles.get_current_for_branch(branch_id)
+        covered_through = memory.covered_through_position if memory else None
         history: list[dict[str, object]] = []
         for turn in self.chat.list_effective_messages(branch_id):
             if turn.user_message.id == message.id:
                 break
+            if turn.active_answer is None or turn.active_answer.content is None:
+                continue
+            if (
+                covered_through is not None
+                and turn.branch_message.logical_position <= covered_through
+            ):
+                continue
             history.append(
                 {
                     "role": "user",
@@ -45,15 +60,13 @@ class ContextService:
                     "branch_message_id": turn.branch_message.id,
                 }
             )
-            answer = turn.active_answer
-            if answer is not None and answer.content is not None:
-                history.append(
-                    {
-                        "role": "assistant",
-                        "content": answer.content,
-                        "answer_version_id": answer.id,
-                    }
-                )
+            history.append(
+                {
+                    "role": "assistant",
+                    "content": turn.active_answer.content,
+                    "answer_version_id": turn.active_answer.id,
+                }
+            )
 
         results = self.generation.list_search_results(search_snapshot.id)
         search_context = {
@@ -70,10 +83,12 @@ class ContextService:
             user_message_id=message.id,
             branch_id=branch_id,
             search_snapshot_id=search_snapshot.id,
+            memory_version_id=memory.id if memory else None,
+            role_version_id=role.id if role else None,
             system_rules_text=self.settings.system_rules_text,
-            role_text="",
-            protected_memory_text="",
-            system_memory_text="",
+            role_text=RoleService.render(role),
+            protected_memory_text=memory.protected_user_text if memory else "",
+            system_memory_text=memory.system_summary if memory else "",
             history_json=history,
             search_context_json=search_context,
             current_user_text=message.content,
@@ -85,8 +100,8 @@ class ContextService:
         system_parts = [
             snapshot.system_rules_text,
             snapshot.role_text,
-            snapshot.protected_memory_text,
             snapshot.system_memory_text,
+            snapshot.protected_memory_text,
             ContextService._search_text(snapshot.search_context_json),
         ]
         blocks: list[str] = []

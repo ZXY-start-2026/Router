@@ -162,3 +162,103 @@ export interface ApiErrorBody {
   };
   detail?: unknown;
 }
+
+export type MemoryVersionType =
+  | "INITIAL_SYSTEM_SUMMARY"
+  | "INCREMENTAL_SYSTEM_UPDATE"
+  | "USER_EDIT"
+  | "RESTORE"
+  | "BRANCH_INHERIT";
+
+export interface MemoryVersion {
+  id: string;
+  branch_id: string;
+  version_number: number;
+  type: MemoryVersionType;
+  base_version_id: string | null;
+  restored_from_version_id: string | null;
+  inherited_from_version_id: string | null;
+  protected_user_text: string;
+  system_summary: string;
+  covered_through_position: number | null;
+  added_from_position: number | null;
+  added_through_position: number | null;
+  conflict_metadata: {
+    status?: "CLEAR" | "CONFLICT" | "UNKNOWN";
+    checked_through_position?: number | null;
+    items?: Array<{
+      dialogue_position?: number | null;
+      description?: string;
+    }>;
+  };
+  created_at: string;
+  is_current: boolean;
+}
+
+export interface MemoryUpdateStatus {
+  id: string;
+  status: "RUNNING" | "SUCCEEDED" | "FAILED";
+  target_from_position: number;
+  target_through_position: number;
+  attempt_count: number;
+  error_category: string | null;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+  created_memory_version_id: string | null;
+}
+
+export interface CurrentMemory {
+  branch_id: string;
+  current: MemoryVersion | null;
+  latest_update: MemoryUpdateStatus | null;
+  config: { n: number; k: number; m: number };
+}
+
+export interface MemoryVersions {
+  items: MemoryVersion[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface MemoryOperation {
+  branch_id: string;
+  operation_status: "SUCCEEDED" | "FAILED";
+  current: MemoryVersion | null;
+  created_version: MemoryVersion | null;
+  latest_update: MemoryUpdateStatus | null;
+}
+
+export interface RoleContent {
+  name: string;
+  persona: string;
+  background: string;
+  domain: string;
+  traits: string[];
+  style: string;
+  constraints_text: string;
+  source_template_id?: string | null;
+}
+
+export interface RoleVersion extends RoleContent {
+  id: string;
+  conversation_id: string;
+  version_number: number;
+  source_template_id: string | null;
+  created_at: string;
+}
+
+export interface CurrentRole {
+  conversation_id: string;
+  branch_id: string;
+  active_role: RoleVersion | null;
+}
+
+export interface RoleTemplate extends Omit<RoleContent, "source_template_id"> {
+  id: string;
+  created_at: string;
+}
+
+export interface RoleTemplateList {
+  items: RoleTemplate[];
+}

@@ -27,6 +27,19 @@ from app.schemas.branches import (
 )
 from app.schemas.common import CursorPage, HealthResponse
 from app.schemas.generation import GenerationTaskResponse
+from app.schemas.memories import (
+    CurrentMemoryResponse,
+    MemoryOperationResponse,
+    MemoryVersionsResponse,
+    UpdateProtectedMemoryRequest,
+)
+from app.schemas.roles import (
+    CurrentRoleResponse,
+    RoleContentRequest,
+    RoleTemplateListResponse,
+    RoleTemplateRequest,
+    RoleTemplateResponse,
+)
 from app.schemas.conversations import (
     ConversationListItem,
     ConversationResponse,
@@ -37,6 +50,8 @@ from app.services.chat import ChatService
 from app.services.answers import AnswerService
 from app.services.branches import BranchService
 from app.services.conversations import ConversationService
+from app.services.memories import MemoryService
+from app.services.roles import RoleService
 
 
 router = APIRouter()
@@ -252,6 +267,121 @@ def activate_branch(
     return BranchService(session, settings, providers).activate(
         conversation_id, branch_id
     )
+
+
+@router.get(
+    "/branches/{branch_id}/memory",
+    response_model=CurrentMemoryResponse,
+)
+def get_memory(
+    branch_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> CurrentMemoryResponse:
+    return MemoryService(session, settings, providers).get_current(branch_id)
+
+
+@router.get(
+    "/branches/{branch_id}/memory/versions",
+    response_model=MemoryVersionsResponse,
+)
+def list_memory_versions(
+    branch_id: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = None,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> MemoryVersionsResponse:
+    return MemoryService(session, settings, providers).list_versions(
+        branch_id, limit, cursor
+    )
+
+
+@router.put(
+    "/branches/{branch_id}/memory",
+    response_model=MemoryOperationResponse,
+)
+def update_memory(
+    branch_id: str,
+    body: UpdateProtectedMemoryRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> MemoryOperationResponse:
+    return MemoryService(session, settings, providers).edit_protected_text(
+        branch_id, body.protected_user_text
+    )
+
+
+@router.post(
+    "/branches/{branch_id}/memory/versions/{version_id}/restore",
+    response_model=MemoryOperationResponse,
+)
+def restore_memory(
+    branch_id: str,
+    version_id: str,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    providers: ProviderRegistry = Depends(get_providers),
+) -> MemoryOperationResponse:
+    return MemoryService(session, settings, providers).restore(
+        branch_id, version_id
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/role",
+    response_model=CurrentRoleResponse,
+)
+def get_role(
+    conversation_id: str,
+    session: Session = Depends(get_session),
+) -> CurrentRoleResponse:
+    return RoleService(session).get_current(conversation_id)
+
+
+@router.put(
+    "/conversations/{conversation_id}/role",
+    response_model=CurrentRoleResponse,
+)
+def update_role(
+    conversation_id: str,
+    body: RoleContentRequest,
+    session: Session = Depends(get_session),
+) -> CurrentRoleResponse:
+    return RoleService(session).update(conversation_id, body)
+
+
+@router.post(
+    "/conversations/{conversation_id}/role/deactivate",
+    response_model=CurrentRoleResponse,
+)
+def deactivate_role(
+    conversation_id: str,
+    session: Session = Depends(get_session),
+) -> CurrentRoleResponse:
+    return RoleService(session).deactivate(conversation_id)
+
+
+@router.get("/role-templates", response_model=RoleTemplateListResponse)
+def list_role_templates(
+    session: Session = Depends(get_session),
+) -> RoleTemplateListResponse:
+    return RoleService(session).list_templates()
+
+
+@router.post(
+    "/role-templates",
+    response_model=RoleTemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_role_template(
+    body: RoleTemplateRequest,
+    session: Session = Depends(get_session),
+) -> RoleTemplateResponse:
+    return RoleService(session).create_template(body)
 
 
 @router.get("/models", response_model=list[ModelOptionResponse])

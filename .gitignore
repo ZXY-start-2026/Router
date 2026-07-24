@@ -7,6 +7,9 @@ backend/**/__pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+/playwright-e2e.db
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts

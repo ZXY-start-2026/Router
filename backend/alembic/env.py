@@ -20,6 +20,8 @@ from app.db.models_generation import (
     SearchResult,
     SearchSnapshot,
 )
+from app.db.models_memory import MemoryUpdateRecord, MemoryVersion
+from app.db.models_role import RoleTemplate, RoleVersion
 from app.db.session import Base
 
 
